@@ -66,8 +66,10 @@ public class BlockItemRenderer implements ItemRenderer {
 
         StateRenderData data = renderersByState[item.getState()];
 
-        data.vao.bind();
-        data.vao.draw(DrawMode.QUADS, 0, data.vertices);
+        if (data.vertices > 0) {
+            data.vao.bind();
+            data.vao.draw(DrawMode.QUADS, 0, data.vertices);
+        }
     }
 
     @Override
@@ -92,14 +94,10 @@ public class BlockItemRenderer implements ItemRenderer {
                 throw new IllegalStateException("Cannot find model for " + state);
             }
             List<BlockPart> parts = model.getParts();
-            List<BlockPartFace> faces = parts.stream().map(p -> p.getFaces().get(displayFace)).collect(Collectors.toList());
-
-            ByteBuffer buffer = BufferUtils.createByteBuffer(faces.size() * 4 * 6 * Float.BYTES);
+            int facesNum = 6;
+            ByteBuffer buffer = BufferUtils.createByteBuffer(facesNum * 4 * 6 * Float.BYTES);
             vertices = 0;
-            for (BlockPartFace f : faces) {
-                // TODO: a world is needed!
-                // TODO: vertices += f.renderOnBuffer(world, 0, 0, 0, buffer);
-            }
+            // todo
             buffer.flip();
 
             vao = new Vao();

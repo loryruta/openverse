@@ -30,7 +30,7 @@ public final class TextureBakery {
         NULL = new ImageContent(16, 16, data);
     }
 
-    private static Texture2dArray textureArray;
+    public static Texture2dArray textureArray;
     private static Map<Path, ImageContent> registered = new HashMap<>();
     private static Map<Path, Integer> layers;
 

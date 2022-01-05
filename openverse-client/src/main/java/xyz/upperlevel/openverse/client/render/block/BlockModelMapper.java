@@ -75,11 +75,4 @@ public class BlockModelMapper {
     public BlockModel getModel(BlockState state) {
         return models.get(state);
     }
-
-    /**
-     * Prepares the loaded model vertices to be used for rendering.
-     */
-    public void bake() {
-        models.values().forEach(BlockModel::bake);
-    }
 }

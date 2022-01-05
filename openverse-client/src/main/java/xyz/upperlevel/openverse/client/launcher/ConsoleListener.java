@@ -44,7 +44,7 @@ public class ConsoleListener {
     }
 
     private int onComplete(String line, int cursor, List<CharSequence> candidates) {
-        return this.localServer.tabComplete(line, (List)candidates);
+        return this.localServer.tabComplete(line, (List) candidates);
     }
 }
 

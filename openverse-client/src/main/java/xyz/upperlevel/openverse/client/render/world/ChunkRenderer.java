@@ -1,55 +1,115 @@
 package xyz.upperlevel.openverse.client.render.world;
 
 import lombok.Getter;
-import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.block.BlockModel;
 import xyz.upperlevel.openverse.client.render.block.BlockTypeModelMapper;
 import xyz.upperlevel.openverse.client.render.world.util.VertexBufferPool;
 import xyz.upperlevel.openverse.world.block.state.BlockState;
 import xyz.upperlevel.openverse.world.chunk.Chunk;
 import xyz.upperlevel.openverse.world.chunk.storage.BlockStorage;
-import xyz.upperlevel.ulge.opengl.DataType;
-import xyz.upperlevel.ulge.opengl.buffer.*;
-import xyz.upperlevel.ulge.opengl.shader.Program;
-import xyz.upperlevel.ulge.opengl.shader.Uniform;
 
 import java.nio.ByteBuffer;
 
-/**
- * This class renders a chunk in a specified location.
- */
-@Getter
-public class ChunkRenderer {
-    private static Uniform worldSkyLightLoc;
+import static org.lwjgl.opengl.GL11.GL_FLOAT;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
+import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
+import static org.lwjgl.opengl.GL30.*;
 
-    private final OpenverseClient client;
-    private final Program program;
+public class ChunkRenderer {
+    public static final int ATTRIB_POSITION = 0;
+    public static final int ATTRIB_NORMAL = 1;
+    public static final int ATTRIB_TEX_COORDS = 2;
+    public static final int ATTRIB_BLOCK_LIGHT = 3;
+    public static final int ATTRIB_BLOCK_SKYLIGHT = 4;
+
+    public static final int VERTEX_SIZE = 3 + 3 + (2 + 1) + 1 + 1;
+    public static final int VERTEX_BYTE_SIZE = VERTEX_SIZE * Float.BYTES;
+
+    @Getter
     private final ChunkViewRenderer view;
-    private Chunk chunk;
-    private Vao vao;
-    private Vbo vbo;
+
+    @Getter
+    private final Chunk chunk;
+
+    @Getter
+    private int vao = -1;
+
+    @Getter
+    private int vbo = -1;
+
     private ChunkCompileTask compileTask;
 
+    @Getter
     private int
             allocateVerticesCount = 0, // vertices to allocate on vbo init
             allocateDataCount = 0; // data to allocate on vbo init
 
+    @Getter
     private int
             drawVerticesCount = 0; // draw vertices count on drawing
 
-    public ChunkRenderer(OpenverseClient client, ChunkViewRenderer view, Chunk chunk, Program program) {
-        this.client = client;
-
+    public ChunkRenderer(ChunkViewRenderer view, Chunk chunk) {
         this.view = view;
-        this.program = program;
         this.chunk = chunk;
-        if (worldSkyLightLoc == null) {
-            worldSkyLightLoc = program.getUniform("worldSkylight");
-        }
-        setup();
+
+        initBuffers();
         reloadVertexSize();
     }
 
+    public void destroy() {
+        //Openverse.getLogger().warning("Destroying VBO for chunk: " + location);
+        if (compileTask != null) {
+            compileTask.abort();
+        }
+
+        glDeleteVertexArrays(vao);
+        glDeleteBuffers(vbo);
+    }
+
+    private void initBuffers() {
+        if (this.vao >= 0 || this.vbo >= 0) {
+            throw new IllegalStateException("Chunk has already been initialized");
+        }
+
+        this.vao = glGenVertexArrays();
+        glBindVertexArray(vao);
+
+        this.vbo = glGenBuffers();
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+        int attribPtr = 0;
+
+        // Position
+        glEnableVertexAttribArray(ATTRIB_POSITION);
+        glVertexAttribPointer(ATTRIB_POSITION, 3, GL_FLOAT, false, VERTEX_BYTE_SIZE, attribPtr);
+        attribPtr += 3 * Float.BYTES;
+
+        // Normal
+        glEnableVertexAttribArray(ATTRIB_NORMAL);
+        glVertexAttribPointer(ATTRIB_NORMAL, 3, GL_FLOAT, false, VERTEX_BYTE_SIZE, attribPtr);
+        attribPtr += 3 * Float.BYTES;
+
+        // Tex coords
+        glEnableVertexAttribArray(ATTRIB_TEX_COORDS);
+        glVertexAttribPointer(ATTRIB_TEX_COORDS, 3, GL_FLOAT, false, VERTEX_BYTE_SIZE, attribPtr);
+        attribPtr += 3 * Float.BYTES;
+
+        // Block light
+        glEnableVertexAttribArray(ATTRIB_BLOCK_LIGHT);
+        glVertexAttribPointer(ATTRIB_BLOCK_LIGHT, 1, GL_FLOAT, false, VERTEX_BYTE_SIZE, attribPtr);
+        attribPtr += Float.BYTES;
+
+        // Block skylight
+        glEnableVertexAttribArray(ATTRIB_BLOCK_SKYLIGHT);
+        glVertexAttribPointer(ATTRIB_BLOCK_SKYLIGHT, 1, GL_FLOAT, false, VERTEX_BYTE_SIZE, attribPtr);
+        //ptr += Float.BYTES;
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+
+    /*
     public void onBlockChange(BlockState oldState, BlockState newState) {//TODO: call whenever a block changes
         BlockModel om = BlockTypeModelMapper.model(oldState);
         BlockModel nm = BlockTypeModelMapper.model(newState);
@@ -66,7 +126,7 @@ public class ChunkRenderer {
         allocateDataCount += newData - oldData;
 
         // rebuilds chunk if requested
-    }
+    }*/
 
     public void reloadVertexSize() {
         BlockStorage storage = chunk.getBlockStorage();
@@ -78,7 +138,7 @@ public class ChunkRenderer {
                     BlockModel model = BlockTypeModelMapper.model(storage.getBlockState(x, y, z));
                     if (model != null) {
                         vertexCount += model.getVerticesCount();
-                        dataCount += model.getDataCount();
+                        dataCount += model.getVerticesCount() * VERTEX_SIZE;
                     }
                 }
             }
@@ -87,35 +147,12 @@ public class ChunkRenderer {
         allocateDataCount = dataCount;
     }
 
-    public void setup() {
-        if (vao != null) {
-            throw new IllegalStateException("Chunk already initialized!");
-        }
-        vao = new Vao();
-        vao.bind();
-
-        vbo = new Vbo();
-        vbo.bind();
-
-        program.use();
-
-        VertexLinker linker = new VertexLinker();
-        linker.attrib(program.getAttribLocation("position"), 3, DataType.FLOAT, false, 0);
-        linker.attrib(program.getAttribLocation("texCoords"), 3, DataType.FLOAT, false, 3 * DataType.FLOAT.getByteCount());
-        linker.attrib(program.getAttribLocation("blockLight"), 1, DataType.FLOAT, false, 6 * DataType.FLOAT.getByteCount());
-        linker.attrib(program.getAttribLocation("blockSkylight"), 1, DataType.FLOAT, false, 7 * DataType.FLOAT.getByteCount());
-        linker.setup();
-
-        vbo.unbind();
-        vao.unbind();
-    }
-
     public ChunkCompileTask createCompileTask(VertexBufferPool pool) {
         if (compileTask != null) {
             compileTask.abort();
             compileTask = null;
         }
-        compileTask = new ChunkCompileTask(client, pool, this);
+        compileTask = new ChunkCompileTask(pool, this);
         return compileTask;
     }
 
@@ -129,11 +166,13 @@ public class ChunkRenderer {
                     if (state != null) {
                         BlockModel model = BlockTypeModelMapper.model(state);
                         if (model != null) {
-                            vertexCount += model.renderOnBuffer(
+                            vertexCount += model.bake(
                                     chunk.getWorld(),
                                     chunk.getX() * 16 + x,
                                     chunk.getY() * 16 + y,
-                                    chunk.getZ() * 16 + z, buffer);
+                                    chunk.getZ() * 16 + z,
+                                    buffer
+                            );
                         }
                     }
                 }
@@ -149,27 +188,10 @@ public class ChunkRenderer {
             if (vertices.remaining() == 0) {
                 throw new IllegalStateException("No vertex in buffer but " + vertexCount + " to draw");
             }
-            vbo.loadData(vertices, VboDataUsage.STATIC_DRAW);
+
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
         }
         this.drawVerticesCount = vertexCount;
-    }
-
-    @SuppressWarnings("deprecation")
-    public void render(Program program) {
-        worldSkyLightLoc.set(chunk.getWorld().getSkylight());
-        //TODO: draw TileEntities
-        if (drawVerticesCount != 0) {
-            vao.bind();
-            vao.draw(DrawMode.QUADS, 0, drawVerticesCount);
-        }
-    }
-
-    public void destroy() {
-        //Openverse.getLogger().warning("Destroying VBO for chunk: " + location);
-        if (compileTask != null) {
-            compileTask.abort();
-        }
-        vbo.destroy();
-        vao.destroy();
     }
 }

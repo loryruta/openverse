@@ -6,9 +6,11 @@ import org.lwjgl.opengl.GL11;
 import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.block.*;
+import xyz.upperlevel.openverse.client.render.world.ChunkViewRenderer;
 import xyz.upperlevel.ulge.game.Scene;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Paths;
 
 public class ResourceScene implements Scene {
@@ -33,6 +35,12 @@ public class ResourceScene implements Scene {
         client.getResources().setup();
         client.getResources().load();
 
+        try {
+            ChunkViewRenderer.init();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+
         BlockModelRegistry.loadFolder(new File("resources/blocks/models"));
         BlockTypeModelMapper.load(client.getResources().blockTypes().entry("grass"), Paths.get("resources/blocks/grass.json"));
         BlockTypeModelMapper.load(client.getResources().blockTypes().entry("dirt"), Paths.get("resources/blocks/dirt.json"));
@@ -40,7 +48,6 @@ public class ResourceScene implements Scene {
         BlockTypeModelMapper.load(client.getResources().blockTypes().entry("photon"), Paths.get("resources/blocks/photon.json"));
 
         TextureBakery.bake();
-        BlockTypeModelMapper.bake(); // bakes models
         OpenverseClient.get().getItemRendererRegistry().registerDefaults(client.getResources().itemTypes()); // bakes item icons
 
         client.getLogger().info("Resources loaded in " + (System.currentTimeMillis() - init) + " ms.");

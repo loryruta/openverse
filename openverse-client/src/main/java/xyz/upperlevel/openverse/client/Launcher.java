@@ -1,6 +1,8 @@
 package xyz.upperlevel.openverse.client;
 
 import lombok.Getter;
+import org.lwjgl.opengl.GLUtil;
+import org.lwjgl.system.Callback;
 import xyz.upperlevel.openverse.client.launcher.SingleplayerScene;
 import xyz.upperlevel.ulge.game.Game;
 import xyz.upperlevel.ulge.game.GameSettings;
@@ -13,6 +15,8 @@ public class Launcher {
     @Getter
     private final Game game;
 
+    private final Callback debugProc;
+
     protected Launcher() {
         Launcher.instance = this;
 
@@ -23,6 +27,14 @@ public class Launcher {
                 .fullscreen(false)
                 .createWindow()
         );
+
+        this.debugProc = GLUtil.setupDebugMessageCallback();
+    }
+
+    public void destroy() {
+        this.debugProc.free();
+
+        // todo destroy ALL
     }
 
     public void launch() {
@@ -35,6 +47,10 @@ public class Launcher {
     }
 
     public static void main(String[] args) {
-        new Launcher().launch();
+        Launcher launcher = new Launcher();
+
+        launcher.launch();
+
+        launcher.destroy();
     }
 }

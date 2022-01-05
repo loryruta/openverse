@@ -13,7 +13,23 @@ import java.io.IOException;
 public class ShaderLoader implements ResourceLoader<Shader> {
     @Override
     public Identifier<Shader> load(File file) {
-        Shader shader = new Shader(ShaderType.getFromExtension(FileUtil.getExtension(file)));
+        String ext = FileUtil.getExtension(file);
+
+        ShaderType shaderType;
+        switch (ext.toLowerCase()) {
+            case "fs":
+            case "frag":
+                shaderType = ShaderType.FRAGMENT;
+                break;
+            case "vs":
+            case "vert":
+                shaderType = ShaderType.VERTEX;
+                break;
+            default:
+                throw new IllegalArgumentException("Shader extension not recognized for: " + ext);
+        }
+
+        Shader shader = new Shader(shaderType);
         OpenverseClient.get().getLogger().info("Loading shader at: " + file.getName());
 
         try {

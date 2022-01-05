@@ -1,11 +1,16 @@
 package xyz.upperlevel.openverse.client.render.world;
 
 import lombok.Getter;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.lwjgl.system.MemoryStack;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.Listener;
-import xyz.upperlevel.openverse.Openverse;
+import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
+import xyz.upperlevel.openverse.client.render.block.TextureBakery;
 import xyz.upperlevel.openverse.client.render.world.util.VertexBufferPool;
+import xyz.upperlevel.openverse.client.util.GLUtil;
 import xyz.upperlevel.openverse.client.world.ClientWorld;
 import xyz.upperlevel.openverse.event.BlockUpdateEvent;
 import xyz.upperlevel.openverse.event.ShutdownEvent;
@@ -13,38 +18,59 @@ import xyz.upperlevel.openverse.world.chunk.ChunkLocation;
 import xyz.upperlevel.openverse.world.chunk.event.ChunkLightChangeEvent;
 import xyz.upperlevel.openverse.world.event.ChunkLoadEvent;
 import xyz.upperlevel.openverse.world.event.ChunkUnloadEvent;
-import xyz.upperlevel.ulge.opengl.shader.Program;
+import xyz.upperlevel.ulge.window.event.ResizeEvent;
 
+import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * This class contains a list of all chunks that have to be rendered.
- */
-@Getter
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
+import static org.lwjgl.opengl.GL13.glActiveTexture;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+
 public class ChunkViewRenderer implements Listener {
     public static final int MAX_RENDER_DISTANCE = 3;
 
-    private final OpenverseClient client;
+    private static GBufferProgram     gBufferProgram;
+    private static SSAOProgram        ssaoProgram;
+    private static ApplyLightsProgram applyLightsProgram;
 
-    private final Program program;
+    @Getter
     private ClientWorld world;
-    private VertexBufferPool vertexProvider = new VertexBufferPool(50);
-    private VertexBufferPool syncProvider = new VertexBufferPool(1);
-    private ExecutorService detachedChunkCompiler = Executors.newSingleThreadExecutor(t -> new Thread(t, "Chunk Compiler thread"));
-    private Queue<ChunkCompileTask> pendingTasks = new ArrayDeque<>(10);
 
+    @Getter
+    private final VertexBufferPool vertexProvider = new VertexBufferPool(50);
+
+    @Getter
+    private final VertexBufferPool syncProvider = new VertexBufferPool(1);
+
+    @Getter
+    private final ExecutorService detachedChunkCompiler = Executors.newSingleThreadExecutor(t -> new Thread(t, "Chunk Compiler thread"));
+
+    @Getter
+    private final Queue<ChunkCompileTask> pendingTasks = new ArrayDeque<>(10);
+
+    @Getter
     private int distance;
-    private Map<ChunkLocation, ChunkRenderer> chunks = new HashMap<>();
 
-    public ChunkViewRenderer(OpenverseClient client, Program program) {
-        this.client = client;
+    @Getter
+    private GBuffer gBuffer;
 
-        this.program = program;
+    private final Map<ChunkLocation, ChunkRenderer> chunks = new HashMap<>();
+
+    public ChunkViewRenderer() {
         this.distance = 1;
 
-        client.getEventManager().register(this);
+        int initScreenWidth  = Launcher.get().getGame().getWindow().getWidth();
+        int initScreenHeight = Launcher.get().getGame().getWindow().getHeight();
+        this.gBuffer = new GBuffer(initScreenWidth, initScreenHeight);
+
+        OpenverseClient.get().getEventManager().register(this);
     }
 
     public void loadChunk(ChunkRenderer chunk) {
@@ -66,10 +92,6 @@ public class ChunkViewRenderer implements Listener {
         return chunks.get(location);
     }
 
-    public Collection<ChunkRenderer> getChunks() {
-        return chunks.values();
-    }
-
     public void setWorld(ClientWorld world) {
         this.world = world;
         //destroy();
@@ -77,7 +99,7 @@ public class ChunkViewRenderer implements Listener {
 
     public void recompileChunk(ChunkRenderer chunk, ChunkCompileMode mode) {
         if (mode == ChunkCompileMode.INSTANT) {
-            pendingTasks.add(new ChunkCompileTask(client, syncProvider, chunk));
+            pendingTasks.add(new ChunkCompileTask(syncProvider, chunk));
         } else {
             ChunkCompileTask task = chunk.createCompileTask(vertexProvider);
             detachedChunkCompiler.execute(() -> {
@@ -90,11 +112,156 @@ public class ChunkViewRenderer implements Listener {
         }
     }
 
-    public void render(Program program) {
-        uploadPendingChunks();
-        for (ChunkRenderer chunk : chunks.values()) {
-            chunk.render(program);
+    private void fillGBuffer(GBuffer gBuffer, Matrix4f transform, Matrix4f camera) {
+        try (MemoryStack stack = MemoryStack.stackPush()) { // todo
+            glUseProgram(gBufferProgram.getProgramName());
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            glClearColor(0, 0, 0, 0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_ALPHA_TEST);
+
+            FloatBuffer transformBuf = stack.callocFloat(16);
+            transform.get(transformBuf);
+            glUniformMatrix4fv(GBufferProgram.UNIFORM_TRANSFORM, false, transformBuf);
+
+            FloatBuffer cameraBuf = stack.callocFloat(16);
+            camera.get(cameraBuf);
+            glUniformMatrix4fv(GBufferProgram.UNIFORM_CAMERA, false, cameraBuf);
+
+            float worldSkylight = world.getSkylight();
+            glUniform1f(GBufferProgram.UNIFORM_WORLD_SKYLIGHT, worldSkylight);
+
+            glUniform1i(GBufferProgram.UNIFORM_BLOCK_TEXTURES, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, TextureBakery.textureArray.getId());
+
+            for (ChunkRenderer bakedChunk : chunks.values()) { // todo ChunkRenderer -> BakedChunk
+                if (bakedChunk.getDrawVerticesCount() > 0) {
+                    glBindVertexArray(bakedChunk.getVao());
+                    glDrawArrays(GL_TRIANGLES, 0, bakedChunk.getDrawVerticesCount());
+                }
+            }
         }
+    }
+
+    private void calcSsao(GBuffer gBuffer, List<Vector3f> samples, Matrix4f camera) {
+        try (MemoryStack stack = MemoryStack.stackPush()) { // todo is using stack efficient ? how does it work ?
+            glUseProgram(ssaoProgram.getProgramName());
+
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_ALPHA_TEST);
+
+            glUniform1i(SSAOProgram.FRAG_GBUFFER_POSITION_UNIFORM, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gBuffer.getPositionTexture());
+
+            glUniform1i(SSAOProgram.FRAG_GBUFFER_NORMAL_UNIFORM, 1);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gBuffer.getNormalTexture());
+
+            FloatBuffer cameraBuf = stack.callocFloat(16);
+            camera.get(cameraBuf);
+            glUniformMatrix4fv(SSAOProgram.FRAG_CAMERA_UNIFORM, false, cameraBuf);
+
+            FloatBuffer sampleBuf = stack.callocFloat(3);
+            for (int i = 0; i < 64; i++) {
+                samples.get(i).get(sampleBuf);
+
+                int sampleAtIdxLoc = glGetUniformLocation(ssaoProgram.getProgramName(), "u_samples[" + i + "]");
+                glUniform3fv(sampleAtIdxLoc, sampleBuf); // todo don't use uniform name ?
+            }
+
+            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
+
+            glBindVertexArray(GLUtil.getEmptyVao());
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+    }
+
+    private void applyLights(GBuffer gBuffer) {
+        glUseProgram(applyLightsProgram.getProgramName());
+
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_ALPHA_TEST);
+
+        // position
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_POSITION, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getPositionTexture());
+
+        // normal
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_NORMAL, 1);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getNormalTexture());
+
+        // albedo
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_ALBEDO, 2);
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getAlbedoTexture());
+
+        // block light
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_BLOCK_LIGHT, 3);
+        glActiveTexture(GL_TEXTURE0 + 3);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getBlockLightTexture());
+
+        // block skylight
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_BLOCK_SKYLIGHT, 4);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getBlockSkylightTexture());
+
+        // ssao
+        glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_SSAO, 5);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.getSsaoTexture());
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // draw to screen
+
+        glBindVertexArray(GLUtil.getEmptyVao());
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    public void render(Matrix4f view, Matrix4f projection) {
+        uploadPendingChunks();
+
+        Matrix4f transform = new Matrix4f();
+
+        Matrix4f camera = new Matrix4f(projection);
+        camera.mul(view);
+
+        // fills gbuffer with the current view
+        fillGBuffer(gBuffer, transform, camera);
+
+        // calculates ssao based on the current gbuffer
+        /*
+        List<Vector3f> samples = new ArrayList<>();
+        Random random = new Random();
+
+        Vector3f sample = new Vector3f();
+
+        for (int i = 0; i < SSAOProgram.KERNEL_SIZE; i++) {
+            sample.x = random.nextFloat() * 2.0f - 1.0f;
+            sample.y = random.nextFloat() * 2.0f - 1.0f;
+            sample.z = random.nextFloat() * 2.0f - 1.0f;
+
+            sample.normalize();
+
+            samples.add(sample);
+        }
+
+        calcSsao(gBuffer, samples, camera);
+
+        applyLights(gBuffer); // finally, apply lights and write output to screen's framebuffer
+         */
     }
 
     public void uploadPendingChunks() {
@@ -138,20 +305,27 @@ public class ChunkViewRenderer implements Listener {
         }
     }
 
-    /**
-     * Destroys all chunks and remove them from memory.
-     */
     public void destroy() {
-        client.getLogger().fine("Shutting down chunk compiler");
+        OpenverseClient.get().getLogger().fine("Shutting down chunk compiler");
         detachedChunkCompiler.shutdownNow();
-        client.getLogger().fine("Done");
+        OpenverseClient.get().getLogger().fine("Done");
         chunks.values().forEach(ChunkRenderer::destroy);
         chunks.clear();
+
+        gBuffer.destroy();
+    }
+
+    @EventHandler
+    public void onWindowResize(ResizeEvent event) {
+        OpenverseClient.logger().fine(String.format("[ChunkViewRenderer] Resizing window to: (%d, %d)", event.getWidth(), event.getHeight()));
+
+        gBuffer.destroy();
+        gBuffer = new GBuffer(event.getWidth(), event.getHeight());
     }
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent e) {
-        loadChunk(new ChunkRenderer(client,this, e.getChunk(), program));
+        loadChunk(new ChunkRenderer(this, e.getChunk()));
 
         ChunkLocation loc = e.getChunk().getLocation();
         recompileChunksAround(loc.x, loc.y, loc.z, ChunkCompileMode.ASYNC);
@@ -182,5 +356,17 @@ public class ChunkViewRenderer implements Listener {
     @EventHandler
     public void onShutdown(ShutdownEvent e) {
         destroy();
+    }
+
+    public static void init() throws IOException {
+        gBufferProgram     = new GBufferProgram();
+        ssaoProgram        = new SSAOProgram();
+        applyLightsProgram = new ApplyLightsProgram();
+    }
+
+    public static void terminate() {
+        gBufferProgram.destroy();
+        ssaoProgram.destroy();
+        applyLightsProgram.destroy();
     }
 }

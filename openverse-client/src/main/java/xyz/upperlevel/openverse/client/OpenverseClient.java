@@ -137,4 +137,8 @@ public class OpenverseClient implements OpenverseProxy {
     public static OpenverseClient get() {
         return instance;
     }
+
+    public static Logger logger() {
+        return get().getLogger();
+    }
 }

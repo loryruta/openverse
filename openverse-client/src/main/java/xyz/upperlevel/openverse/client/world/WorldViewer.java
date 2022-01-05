@@ -2,6 +2,7 @@ package xyz.upperlevel.openverse.client.world;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.joml.Matrix4f;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.Listener;
 import xyz.upperlevel.hermes.Connection;
@@ -44,19 +45,13 @@ public class WorldViewer implements PacketListener, Listener {
     @Setter
     private LivingEntity entity;
 
-    @Getter
-    @Setter
-    private Program program;
-    private Uniform cameraLoc;
     private float aspectRatio = 1f;
 
     public WorldViewer(OpenverseClient client, LivingEntity entity) {
         this.client = client;
 
         this.entity = entity;
-        this.program = client.getResources().programs().entry("simple_shader");
-        this.worldSession = new WorldSession(client, program);
-        this.cameraLoc = program.getUniform("camera");
+        this.worldSession = new WorldSession();
         Window window = Launcher.get().getGame().getWindow();
         window.getEventManager().register(this);
         reloadAspectRatio();
@@ -70,22 +65,12 @@ public class WorldViewer implements PacketListener, Listener {
     }
 
     public void render(float partialTicks) {
-        program.use();
         Location loc = entity.getEyePosition(partialTicks);
 
-        cameraLoc.set(CameraUtil.getCamera(
-                45f,
-                aspectRatio,
-                0.01f,
-                10000f,
-                (float) Math.toRadians(loc.getYaw()),
-                (float) Math.toRadians(loc.getPitch()),
-                (float) loc.getX(),
-                (float) loc.getY(),
-                (float) loc.getZ()
-        ));
+        Matrix4f view = CameraUtil.getView((float) Math.toRadians(loc.getYaw()), (float) Math.toRadians(loc.getPitch()), (float) loc.getX(), (float) loc.getY(), (float) loc.getZ());
+        Matrix4f proj = CameraUtil.getProjection(45f, aspectRatio, 0.01f, 1000f);
 
-        worldSession.getChunkView().render(program);
+        worldSession.getChunkView().render(view, proj);
     }
 
     public void reloadAspectRatio() {

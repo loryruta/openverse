@@ -55,9 +55,13 @@ dependencies {
 task copyResources() {
     shouldRunAfter tasks.shadowJar
 
+    String srcResFolder = "src/main/resources"
+    String dstResFolder = "${tasks.shadowJar.destinationDirectory.get()}/resources"
+
+    delete dstResFolder
     copy {
-        from "src/main/resources"
-        into "${tasks.shadowJar.destinationDirectory.get()}/resources"
+        from srcResFolder
+        into dstResFolder
     }
 }
 

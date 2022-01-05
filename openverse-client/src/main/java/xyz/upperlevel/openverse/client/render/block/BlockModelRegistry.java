@@ -61,8 +61,8 @@ public final class BlockModelRegistry {
      * Registers given model. If the model links a texture, loads its texture.
      */
     public static void register(Path path, BlockPart model) {
-        for (BlockPartFace face : model.getFaces().values()) {
-            TextureBakery.load(face.getTextureLocation());
+        for (Path texPath : model.getFaceTextures()) {
+            TextureBakery.load(texPath);
         }
         models.put(path, model);
     }

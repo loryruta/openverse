@@ -1,30 +1,34 @@
 package xyz.upperlevel.openverse.client.render.world;
 
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.world.util.VertexBuffer;
 import xyz.upperlevel.openverse.client.render.world.util.VertexBufferPool;
 
 import java.util.logging.Level;
 
-@RequiredArgsConstructor
 public class ChunkCompileTask {
-    private final OpenverseClient client;
     private final VertexBufferPool bufferPool;
-    @NonNull
     private final ChunkRenderer chunk;
+
     private VertexBuffer buffer;
     private int vertexCount;
     private State state = State.COMPILE_PENDING;
+
+    public ChunkCompileTask(VertexBufferPool bufferPool, ChunkRenderer chunk) {
+        this.bufferPool = bufferPool;
+        this.chunk = chunk;
+    }
 
     protected void askBuffer() {
         if (buffer == null) {
             try {
                 buffer = bufferPool.waitForBuffer();
             } catch (InterruptedException e) {
-                client.getLogger().log(Level.WARNING, " Chunk compiler: interrupted pool retrieving");
+                OpenverseClient.get().getLogger().log(
+                        Level.WARNING,
+                        " Chunk compiler: interrupted pool retrieving",
+                        e
+                );
             }
         }
     }
@@ -97,7 +101,11 @@ public class ChunkCompileTask {
         try {
             vertexCount = chunk.compile(buffer.byteBuffer());
         } catch (Exception e) {
-            client.getLogger().log(Level.SEVERE, "Error while compiling chunk (data:" + (chunk.getAllocateDataCount() * Float.BYTES) + ", cap:" + buffer.byteBuffer().capacity() + ")", e);
+            OpenverseClient.get().getLogger().log(
+                    Level.SEVERE,
+                    "Error while compiling chunk (data:" + (chunk.getAllocateDataCount() * Float.BYTES) + ", cap:" + buffer.byteBuffer().capacity() + ")",
+                    e
+            );
             forceAbort();
             return false;
         }

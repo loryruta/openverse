@@ -100,6 +100,7 @@ public class PlayingWorldScene implements Scene, Listener {
 
     @Override
     public void onRender() {
+        glClearColor(0.0f, 0.0f, 1.0f, 0);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
         //OpenverseClient.get().getDebugGuiManager().render();
