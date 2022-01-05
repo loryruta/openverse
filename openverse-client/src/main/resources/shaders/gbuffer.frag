@@ -17,7 +17,7 @@ layout(location = 4) out float g_block_skylight;
 
 void main()
 {
-    g_position    = texture(u_block_textures, v_tex_coords).rgb;
+    g_position    = v_position;
     g_normal      = v_normal;
     g_albedo      = texture(u_block_textures, v_tex_coords);
     g_block_light    = v_block_light;

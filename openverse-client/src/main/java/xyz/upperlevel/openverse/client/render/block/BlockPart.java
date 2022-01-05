@@ -50,8 +50,8 @@ public class BlockPart {
     }
 
     public int bake(World world, int x, int y, int z, ByteBuffer buffer) {
-        int blockLight = world.getBlockLight(x, y, z);
-        int blockSkylight = world.getBlockSkylight(x, y, z);
+        float blockLight    = world.getBlockLight(x, y, z) / (float) 0xFF;
+        float blockSkylight = world.getBlockSkylight(x, y, z) / (float) 0xFF;
 
         float[] floatsArr = new float[]{
                 // Left face

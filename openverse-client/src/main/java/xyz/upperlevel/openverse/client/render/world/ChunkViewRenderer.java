@@ -116,7 +116,7 @@ public class ChunkViewRenderer implements Listener {
         try (MemoryStack stack = MemoryStack.stackPush()) { // todo
             glUseProgram(gBufferProgram.getProgramName());
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
 
             glClearColor(0, 0, 0, 0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
