@@ -1,14 +1,21 @@
 #version 460
 
+#define KERNEL_SIZE 64
+
 in vec2 v_tex_coords; // screen quad coords
 
 layout(location = 0) uniform sampler2D g_position;
 layout(location = 1) uniform sampler2D g_normal;
-layout(location = 3) uniform mat4 u_camera;
 
-uniform vec3 u_samples[64];
+layout(location = 2) uniform mat4 u_camera;
 
-uint  k_kernel_size = 64;
+layout(binding = 0) uniform b_kernel_samples
+{
+    vec4 u_samples[KERNEL_SIZE];
+};
+
+layout(location = 3) uniform sampler2D u_noise_tex;
+
 float k_sample_radius = 0.5;
 float k_bias = 0.025;
 
@@ -16,14 +23,21 @@ layout(location = 5) out float f_ssao;
 
 void main()
 {
-    vec3 frag_pos    = texture(g_position, v_tex_coords).rgb;
-    vec3 frag_norm   = texture(g_normal,   v_tex_coords).rgb;
+    vec3 frag_pos = texture(g_position, v_tex_coords).rgb;
+    vec3 normal   = texture(g_normal,   v_tex_coords).rgb;
+
+    vec3 random_vec = normalize(vec3(0.5, 2.3, 0.8));// todo
+
+    vec3 tangent   = normalize(random_vec - normal * dot(normal, random_vec));
+    vec3 bitangent = cross(tangent, normal);
+    mat3 TBN = mat3(tangent, bitangent, normal);
 
     float occlusion = 0;
 
-    for (int i = 0; i < k_kernel_size; i++)
+    for (int i = 0; i < KERNEL_SIZE; i++)
     {
-        vec3 sample_pos = frag_pos + u_samples[i] * k_sample_radius; // move the frag pos by the sample vec calculated
+        vec3 sample_dir = TBN * u_samples[i].xyz;
+        vec3 sample_pos = frag_pos + sample_dir * k_sample_radius; // move the frag pos by the sample vec calculated
 
         vec4 offset = vec4(sample_pos, 1.0);
         offset = u_camera * offset;
@@ -38,7 +52,7 @@ void main()
         }
     }
 
-    occlusion = occlusion / k_kernel_size;
+    occlusion = occlusion / KERNEL_SIZE;
 
     f_ssao = occlusion;
 }

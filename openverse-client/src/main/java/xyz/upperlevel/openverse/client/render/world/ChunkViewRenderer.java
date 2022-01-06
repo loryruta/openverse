@@ -37,8 +37,8 @@ public class ChunkViewRenderer implements Listener {
     public static final int MAX_RENDER_DISTANCE = 3;
 
     private static GBufferProgram     gBufferProgram;
-    private static SSAOProgram        ssaoProgram;
     private static ApplyLightsProgram applyLightsProgram;
+    private static SSAOPass           ssaoPass;
 
     @Getter
     private ClientWorld world;
@@ -123,6 +123,7 @@ public class ChunkViewRenderer implements Listener {
 
             glEnable(GL_DEPTH_TEST);
             glEnable(GL_ALPHA_TEST);
+            glEnable(GL_CULL_FACE);
 
             FloatBuffer transformBuf = stack.callocFloat(16);
             transform.get(transformBuf);
@@ -148,48 +149,14 @@ public class ChunkViewRenderer implements Listener {
         }
     }
 
-    private void calcSsao(GBuffer gBuffer, List<Vector3f> samples, Matrix4f camera) {
-        try (MemoryStack stack = MemoryStack.stackPush()) { // todo is using stack efficient ? how does it work ?
-            glUseProgram(ssaoProgram.getProgramName());
-
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_ALPHA_TEST);
-
-            glUniform1i(SSAOProgram.FRAG_GBUFFER_POSITION_UNIFORM, 0);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gBuffer.getPositionTexture());
-
-            glUniform1i(SSAOProgram.FRAG_GBUFFER_NORMAL_UNIFORM, 1);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gBuffer.getNormalTexture());
-
-            FloatBuffer cameraBuf = stack.callocFloat(16);
-            camera.get(cameraBuf);
-            glUniformMatrix4fv(SSAOProgram.FRAG_CAMERA_UNIFORM, false, cameraBuf);
-
-            FloatBuffer sampleBuf = stack.callocFloat(3);
-            for (int i = 0; i < 64; i++) {
-                samples.get(i).get(sampleBuf);
-
-                int sampleAtIdxLoc = glGetUniformLocation(ssaoProgram.getProgramName(), "u_samples[" + i + "]");
-                glUniform3fv(sampleAtIdxLoc, sampleBuf); // todo don't use uniform name ?
-            }
-
-            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
-
-            glBindVertexArray(GLUtil.getEmptyVao());
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-        }
-    }
-
     private void applyLights(GBuffer gBuffer) {
         glUseProgram(applyLightsProgram.getProgramName());
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // draw to screen
+
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
 
         // position
         glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_POSITION, 0);
@@ -221,8 +188,6 @@ public class ChunkViewRenderer implements Listener {
         glActiveTexture(GL_TEXTURE0 + 5);
         glBindTexture(GL_TEXTURE_2D, gBuffer.getSsaoTexture());
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // draw to screen
-
         glBindVertexArray(GLUtil.getEmptyVao());
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -241,27 +206,11 @@ public class ChunkViewRenderer implements Listener {
         // fills gbuffer with the current view
         fillGBuffer(gBuffer, transform, camera);
 
-        // calculates ssao based on the current gbuffer
-        /*
-        List<Vector3f> samples = new ArrayList<>();
-        Random random = new Random();
-
-        Vector3f sample = new Vector3f();
-
-        for (int i = 0; i < SSAOProgram.KERNEL_SIZE; i++) {
-            sample.x = random.nextFloat() * 2.0f - 1.0f;
-            sample.y = random.nextFloat() * 2.0f - 1.0f;
-            sample.z = random.nextFloat() * 2.0f - 1.0f;
-
-            sample.normalize();
-
-            samples.add(sample);
+        if (OpenverseClient.get().isSsaoEnabled()) {
+            ssaoPass.run(gBuffer, camera);
         }
 
-        calcSsao(gBuffer, samples, camera);
-
         applyLights(gBuffer); // finally, apply lights and write output to screen's framebuffer
-         */
     }
 
     public void uploadPendingChunks() {
@@ -344,7 +293,6 @@ public class ChunkViewRenderer implements Listener {
         recompileChunksAroundBlock(e.getX(), e.getY(), e.getZ(), ChunkCompileMode.INSTANT);
     }
 
-
     @EventHandler
     public void onChunkLightChange(ChunkLightChangeEvent e) {
         if (world != e.getWorld()) {
@@ -360,13 +308,13 @@ public class ChunkViewRenderer implements Listener {
 
     public static void init() throws IOException {
         gBufferProgram     = new GBufferProgram();
-        ssaoProgram        = new SSAOProgram();
+        ssaoPass           = new SSAOPass();
         applyLightsProgram = new ApplyLightsProgram();
     }
 
     public static void terminate() {
         gBufferProgram.destroy();
-        ssaoProgram.destroy();
+        ssaoPass.destroy();
         applyLightsProgram.destroy();
     }
 }

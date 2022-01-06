@@ -166,13 +166,7 @@ public class ChunkRenderer {
                     if (state != null) {
                         BlockModel model = BlockTypeModelMapper.model(state);
                         if (model != null) {
-                            vertexCount += model.bake(
-                                    chunk.getWorld(),
-                                    chunk.getX() * 16 + x,
-                                    chunk.getY() * 16 + y,
-                                    chunk.getZ() * 16 + z,
-                                    buffer
-                            );
+                            vertexCount += model.bake(chunk.getWorld(), chunk.getX() * 16 + x, chunk.getY() * 16 + y, chunk.getZ() * 16 + z, buffer);
                         }
                     }
                 }

@@ -17,11 +17,12 @@ void main()
 {
     vec3 frag_pos    = texture(g_position, v_tex_coords).rgb;
     vec3 frag_norm   = texture(g_normal, v_tex_coords).rgb;
-    vec4 frag_albedo = texture(g_albedo, v_tex_coords);
+    vec4 frag_albedo = texture(g_albedo, v_tex_coords).rgba;
     float frag_block_light    = texture(g_block_light, v_tex_coords).r;
     float frag_block_skylight = texture(g_block_skylight, v_tex_coords).r;
     float frag_ssao  = texture(g_ssao, v_tex_coords).r;
 
-    float amb_light = min((frag_block_skylight * k_skylight_intensity) + (frag_block_light + 0.1), 1.0);
-    f_color = amb_light * frag_ssao * frag_albedo;
+    float amb_light = (frag_block_skylight * k_skylight_intensity) + (frag_block_light + 0.1) * (1.0 - frag_ssao);
+    f_color = amb_light * frag_albedo;
+    f_color = min(f_color, 1.0);
 }

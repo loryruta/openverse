@@ -56,6 +56,12 @@ public class OpenverseClient implements OpenverseProxy {
     @Setter
     private Player player;
 
+    /* Graphics settings */
+
+    @Getter
+    @Setter
+    private boolean ssaoEnabled = true;
+
     public OpenverseClient(Client client, PrintStream writer) {
         instance = this;
 

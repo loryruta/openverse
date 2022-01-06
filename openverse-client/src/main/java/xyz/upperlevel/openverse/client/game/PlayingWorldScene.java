@@ -134,6 +134,11 @@ public class PlayingWorldScene implements Scene, Listener {
                     }
                     client.getLogger().fine("Screenshot saved in " + file.getAbsolutePath());
                     break;
+                case F3:
+                    boolean ssao = !client.isSsaoEnabled();
+                    client.setSsaoEnabled(ssao);
+                    client.getLogger().fine(String.format("SSAO enabled? %b", ssao));
+                    break;
                 case E:
                     getPlayer().openInventory();
                     break;

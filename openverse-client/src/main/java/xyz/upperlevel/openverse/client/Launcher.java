@@ -15,7 +15,7 @@ public class Launcher {
     @Getter
     private final Game game;
 
-    private final Callback debugProc;
+    private Callback debugProc;
 
     protected Launcher() {
         Launcher.instance = this;
@@ -28,7 +28,7 @@ public class Launcher {
                 .createWindow()
         );
 
-        this.debugProc = GLUtil.setupDebugMessageCallback();
+        //this.debugProc = GLUtil.setupDebugMessageCallback();
     }
 
     public void destroy() {

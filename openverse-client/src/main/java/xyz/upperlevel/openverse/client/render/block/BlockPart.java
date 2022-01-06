@@ -1,6 +1,7 @@
 package xyz.upperlevel.openverse.client.render.block;
 
 import lombok.Getter;
+import org.lwjgl.system.MemoryStack;
 import xyz.upperlevel.openverse.util.config.Config;
 import xyz.upperlevel.openverse.util.math.Aabb3f;
 import xyz.upperlevel.openverse.world.World;
@@ -41,7 +42,7 @@ public class BlockPart {
         }
     }
 
-    public int getFaceTextureLayer(BlockFace blockFace) {
+    public int getFaceTextureLayerIndex(BlockFace blockFace) {
         return TextureBakery.getLayer(faceTextures[blockFace.ordinal()]);
     }
 
@@ -49,58 +50,63 @@ public class BlockPart {
         return 6 * 6;
     }
 
-    public int bake(World world, int x, int y, int z, ByteBuffer buffer) {
-        float blockLight    = world.getBlockLight(x, y, z) / (float) 0xFF;
-        float blockSkylight = world.getBlockSkylight(x, y, z) / (float) 0xFF;
+    private float getBlockLight(World world, int x, int y, int z, BlockFace face) {
+        return world.getBlockLight(x + face.offsetX, y + face.offsetY, z + face.offsetZ) / (float) 0xF;
+    }
 
+    private float getBlockSkylight(World world, int x, int y, int z, BlockFace face) {
+        return world.getBlockSkylight(x + face.offsetX, y + face.offsetY, z + face.offsetZ) / (float) 0xF;
+    }
+
+    public int bake(World world, int x, int y, int z, ByteBuffer buffer) {
         float[] floatsArr = new float[]{
                 // Left face
-                x, y, z,         -1, 0, 0, 0, 1, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
-                x, y, z + 1,     -1, 0, 0, 1, 1, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
-                x, y + 1, z,     -1, 0, 0, 0, 0, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
-                x, y + 1, z,     -1, 0, 0, 0, 0, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
-                x, y, z + 1,     -1, 0, 0, 1, 1, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
-                x, y + 1, z + 1, -1, 0, 0, 1, 0, getFaceTextureLayer(BlockFace.LEFT), blockLight, blockSkylight,
+                x, y, z,         -1, 0, 0, 0, 1, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
+                x, y, z + 1,     -1, 0, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
+                x, y + 1, z,     -1, 0, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
+                x, y + 1, z,     -1, 0, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
+                x, y, z + 1,     -1, 0, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
+                x, y + 1, z + 1, -1, 0, 0, 1, 0, getFaceTextureLayerIndex(BlockFace.LEFT), getBlockLight(world, x, y, z, BlockFace.LEFT), getBlockSkylight(world, x, y, z, BlockFace.LEFT),
 
                 // Right face
-                x + 1, y, z,         1, 0, 0, 0, 1, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
-                x + 1, y + 1, z,     1, 0, 0, 0, 0, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
-                x + 1, y, z + 1,     1, 0, 0, 1, 1, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
-                x + 1, y + 1, z,     1, 0, 0, 0, 0, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
-                x + 1, y + 1, z + 1, 1, 0, 0, 1, 0, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
-                x + 1, y, z + 1,     1, 0, 0, 1, 1, getFaceTextureLayer(BlockFace.RIGHT), blockLight, blockSkylight,
+                x + 1, y, z,         1, 0, 0, 0, 1, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
+                x + 1, y + 1, z,     1, 0, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
+                x + 1, y, z + 1,     1, 0, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
+                x + 1, y + 1, z,     1, 0, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
+                x + 1, y + 1, z + 1, 1, 0, 0, 1, 0, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
+                x + 1, y, z + 1,     1, 0, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.RIGHT), getBlockLight(world, x, y, z, BlockFace.RIGHT), getBlockSkylight(world, x, y, z, BlockFace.RIGHT),
 
                 // Bottom face
-                x, y, z,         0, -1, 0, 0, 1, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
-                x + 1, y, z,     0, -1, 0, 1, 1, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
-                x, y, z + 1,     0, -1, 0, 0, 0, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
-                x + 1, y, z,     0, -1, 0, 1, 1, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
-                x + 1, y, z + 1, 0, -1, 0, 1, 0, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
-                x, y, z + 1,     0, -1, 0, 0, 0, getFaceTextureLayer(BlockFace.DOWN), blockLight, blockSkylight,
+                x, y, z,         0, -1, 0, 0, 1, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
+                x + 1, y, z,     0, -1, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
+                x, y, z + 1,     0, -1, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
+                x + 1, y, z,     0, -1, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
+                x + 1, y, z + 1, 0, -1, 0, 1, 0, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
+                x, y, z + 1,     0, -1, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.DOWN), getBlockLight(world, x, y, z, BlockFace.DOWN), getBlockSkylight(world, x, y, z, BlockFace.DOWN),
 
                 // Top face
-                x, y + 1, z,         0, 1, 0, 0, 1, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
-                x, y + 1, z + 1,     0, 1, 0, 0, 0, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
-                x + 1, y + 1, z,     0, 1, 0, 1, 1, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
-                x + 1, y + 1, z,     0, 1, 0, 1, 1, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
-                x, y + 1, z + 1,     0, 1, 0, 0, 0, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
-                x + 1, y + 1, z + 1, 0, 1, 0, 1, 0, getFaceTextureLayer(BlockFace.UP), blockLight, blockSkylight,
+                x, y + 1, z,         0, 1, 0, 0, 1, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
+                x, y + 1, z + 1,     0, 1, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
+                x + 1, y + 1, z,     0, 1, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
+                x + 1, y + 1, z,     0, 1, 0, 1, 1, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
+                x, y + 1, z + 1,     0, 1, 0, 0, 0, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
+                x + 1, y + 1, z + 1, 0, 1, 0, 1, 0, getFaceTextureLayerIndex(BlockFace.UP), getBlockLight(world, x, y, z, BlockFace.UP), getBlockSkylight(world, x, y, z, BlockFace.UP),
 
                 // Back face
-                x, y, z,         0, 0, -1, 0, 1, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
-                x + 1, y + 1, z, 0, 0, -1, 1, 0, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
-                x + 1, y, z,     0, 0, -1, 1, 1, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
-                x, y, z,         0, 0, -1, 0, 1, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
-                x, y + 1, z,     0, 0, -1, 0, 0, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
-                x + 1, y + 1, z, 0, 0, -1, 1, 0, getFaceTextureLayer(BlockFace.BACK), blockLight, blockSkylight,
+                x, y, z,         0, 0, -1, 0, 1, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
+                x + 1, y + 1, z, 0, 0, -1, 1, 0, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
+                x + 1, y, z,     0, 0, -1, 1, 1, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
+                x, y, z,         0, 0, -1, 0, 1, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
+                x, y + 1, z,     0, 0, -1, 0, 0, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
+                x + 1, y + 1, z, 0, 0, -1, 1, 0, getFaceTextureLayerIndex(BlockFace.BACK), getBlockLight(world, x, y, z, BlockFace.BACK), getBlockSkylight(world, x, y, z, BlockFace.BACK),
 
                 // Front face
-                x, y, z + 1,         0, 0, 1, 0, 1, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
-                x + 1, y, z + 1,     0, 0, 1, 1, 1, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
-                x + 1, y + 1, z + 1, 0, 0, 1, 1, 0, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
-                x + 1, y + 1, z + 1, 0, 0, 1, 1, 0, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
-                x, y + 1, z + 1,     0, 0, 1, 0, 0, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
-                x, y, z + 1,         0, 0, 1, 0, 1, getFaceTextureLayer(BlockFace.FRONT), blockLight, blockSkylight,
+                x, y, z + 1,         0, 0, 1, 0, 1, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
+                x + 1, y, z + 1,     0, 0, 1, 1, 1, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
+                x + 1, y + 1, z + 1, 0, 0, 1, 1, 0, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
+                x + 1, y + 1, z + 1, 0, 0, 1, 1, 0, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
+                x, y + 1, z + 1,     0, 0, 1, 0, 0, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
+                x, y, z + 1,         0, 0, 1, 0, 1, getFaceTextureLayerIndex(BlockFace.FRONT), getBlockLight(world, x, y, z, BlockFace.FRONT), getBlockSkylight(world, x, y, z, BlockFace.FRONT),
         };
 
         for (float f : floatsArr) {

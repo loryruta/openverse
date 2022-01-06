@@ -5,17 +5,22 @@ import lombok.RequiredArgsConstructor;
 import xyz.upperlevel.openverse.util.math.Aabb2f;
 import xyz.upperlevel.openverse.util.math.Aabb3f;
 
-@RequiredArgsConstructor
 public enum BlockFace {
     UP(0, 1, 0),
     DOWN(0, -1, 0),
-    FRONT(0, 0, -1),
-    BACK(0, 0, 1),
+    FRONT(0, 0, 1),
+    BACK(0, 0, -1),
     RIGHT(1, 0, 0),
     LEFT(-1, 0, 0);
 
     @Getter
     public final int offsetX, offsetY, offsetZ;
+
+    BlockFace(int offsetX, int offsetY, int offsetZ) {
+        this.offsetX = offsetX;
+        this.offsetY = offsetY;
+        this.offsetZ = offsetZ;
+    }
 
     /**
      * Resolves the {@link Aabb2f} from the given {@link Aabb3f}.
