@@ -32,6 +32,7 @@ import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL44.glClearTexImage;
 
 public class ChunkViewRenderer implements Listener {
     public static final int MAX_RENDER_DISTANCE = 3;
@@ -112,14 +113,28 @@ public class ChunkViewRenderer implements Listener {
         }
     }
 
+    private void clearGBuffer(GBuffer gBuffer) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
+
+            glClear(GL_DEPTH_BUFFER_BIT);
+
+            FloatBuffer black = stack.floats(0, 0, 0, 0);
+            glClearTexImage(gBuffer.getPositionTexture(),      0, GL_RGBA, GL_FLOAT, black);
+            glClearTexImage(gBuffer.getNormalTexture(),        0, GL_RGBA, GL_FLOAT, black);
+            glClearTexImage(gBuffer.getAlbedoTexture(),        0, GL_RGBA, GL_FLOAT, black);
+            glClearTexImage(gBuffer.getBlockLightTexture(),    0, GL_RGBA, GL_FLOAT, black);
+            glClearTexImage(gBuffer.getBlockSkylightTexture(), 0, GL_RGBA, GL_FLOAT, black);
+            glClearTexImage(ssaoPass.getSsaoTexture(),         0, GL_RGBA, GL_FLOAT, black);
+        }
+
+    }
+
     private void fillGBuffer(GBuffer gBuffer, Matrix4f transform, Matrix4f camera) {
         try (MemoryStack stack = MemoryStack.stackPush()) { // todo
             glUseProgram(gBufferProgram.getProgramName());
 
             glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
-
-            glClearColor(0, 0, 0, 0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glEnable(GL_DEPTH_TEST);
             glEnable(GL_ALPHA_TEST);
@@ -186,7 +201,7 @@ public class ChunkViewRenderer implements Listener {
         // ssao
         glUniform1i(ApplyLightsProgram.UNIFORM_GBUFFER_SSAO, 5);
         glActiveTexture(GL_TEXTURE0 + 5);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.getSsaoTexture());
+        glBindTexture(GL_TEXTURE_2D, ssaoPass.getSsaoTexture());
 
         glBindVertexArray(GLUtil.getEmptyVao());
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -203,11 +218,11 @@ public class ChunkViewRenderer implements Listener {
         Matrix4f camera = new Matrix4f(projection);
         camera.mul(view);
 
-        // fills gbuffer with the current view
+        clearGBuffer(gBuffer);
         fillGBuffer(gBuffer, transform, camera);
 
         if (OpenverseClient.get().isSsaoEnabled()) {
-            ssaoPass.run(gBuffer, camera);
+            ssaoPass.run(gBuffer, view, projection);
         }
 
         applyLights(gBuffer); // finally, apply lights and write output to screen's framebuffer

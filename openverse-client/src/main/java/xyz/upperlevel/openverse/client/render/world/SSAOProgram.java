@@ -11,8 +11,10 @@ import static org.lwjgl.opengl.GL20.*;
 public class SSAOProgram {
     public static final int UNIFORM_GBUFFER_POSITION = 0;
     public static final int UNIFORM_GBUFFER_NORMAL = 1;
-    public static final int UNIFORM_CAMERA = 2;
-    public static final int UNIFORM_NOISE_TEXTURE = 3;
+    public static final int UNIFORM_VIEW_MATRIX = 2;
+    public static final int UNIFORM_PROJ_MATRIX = 3;
+    public static final int UNIFORM_NOISE_TEXTURE = 4;
+    public static final int UNIFORM_SCREEN_DIM = 5;
 
     public static final int BUFFER_BINDING_KERNEL_SAMPLES = 0;
 

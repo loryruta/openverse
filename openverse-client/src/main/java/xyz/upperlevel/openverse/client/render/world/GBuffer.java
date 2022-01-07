@@ -18,8 +18,7 @@ public class GBuffer {
             normalTexture,
             albedoTexture,
             blockLightTexture,
-            blockSkylightTexture,
-            ssaoTexture;
+            blockSkylightTexture;
 
     @Getter
     private final int renderbuffer;
@@ -65,20 +64,12 @@ public class GBuffer {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, blockSkylightTexture, 0);
 
-        this.ssaoTexture = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, ssaoTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, screenWidth, screenHeight, 0, GL_RED, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, ssaoTexture, 0);
-
         glDrawBuffers(new int[]{
                 GL_COLOR_ATTACHMENT0,
                 GL_COLOR_ATTACHMENT1,
                 GL_COLOR_ATTACHMENT2,
                 GL_COLOR_ATTACHMENT3,
                 GL_COLOR_ATTACHMENT4,
-                GL_COLOR_ATTACHMENT5
         });
 
         this.renderbuffer = glGenRenderbuffers();
