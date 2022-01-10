@@ -8,6 +8,7 @@ import xyz.upperlevel.openverse.util.config.Config;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -61,8 +62,12 @@ public final class BlockModelRegistry {
      * Registers given model. If the model links a texture, loads its texture.
      */
     public static void register(Path path, BlockPart model) {
-        for (Path texPath : model.getFaceTextures()) {
-            TextureBakery.load(texPath);
+        for (File texFile : model.getFaceTextures()) {
+            try {
+                TextureBakery.get().loadAndStoreTexture(texFile);
+            } catch (IOException e) {
+                throw new IllegalStateException("Texture loading failed for: " + texFile);
+            }
         }
         models.put(path, model);
     }

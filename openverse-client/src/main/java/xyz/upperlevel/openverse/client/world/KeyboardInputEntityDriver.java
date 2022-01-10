@@ -3,11 +3,13 @@ package xyz.upperlevel.openverse.client.world;
 import lombok.Getter;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.Listener;
+import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
+import xyz.upperlevel.openverse.client.window.Window;
+import xyz.upperlevel.openverse.client.window.WindowCursorMoveEvent;
 import xyz.upperlevel.openverse.world.entity.input.LivingEntityDriver;
-import xyz.upperlevel.ulge.window.Window;
-import xyz.upperlevel.ulge.window.event.CursorMoveEvent;
-import xyz.upperlevel.ulge.window.event.key.Key;
+
+import static org.lwjgl.glfw.GLFW.*;
 
 @Getter
 public class KeyboardInputEntityDriver implements LivingEntityDriver, Listener {
@@ -15,13 +17,14 @@ public class KeyboardInputEntityDriver implements LivingEntityDriver, Listener {
     private static final float SENSIBILITY = 0.5f;
 
     private final Window window;
+
     private float strafe, up, forward, yaw, pitch;
 
     private double lastCursorX, lastCursorY;
     private float cumulativeYaw, cumulativePitch;
 
-    public KeyboardInputEntityDriver(Window window) {
-        this.window = window;
+    public KeyboardInputEntityDriver() {
+        this.window = Launcher.get().getWindow();
         window.getEventManager().register(this);
     }
 
@@ -35,9 +38,9 @@ public class KeyboardInputEntityDriver implements LivingEntityDriver, Listener {
             pitch = 0;
             return;
         }
-        strafe  = getMovement(Key.D,     Key.A,          SPEED);
-        up      = getMovement(Key.SPACE, Key.LEFT_SHIFT, SPEED);
-        forward = getMovement(Key.W,     Key.S,          SPEED);
+        strafe  = getMovement(GLFW_KEY_D,     GLFW_KEY_A,          SPEED);
+        up      = getMovement(GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT, SPEED);
+        forward = getMovement(GLFW_KEY_W,     GLFW_KEY_S,          SPEED);
 
         yaw   = cumulativeYaw;
         pitch = cumulativePitch;
@@ -46,25 +49,26 @@ public class KeyboardInputEntityDriver implements LivingEntityDriver, Listener {
         cumulativePitch = 0f;
     }
 
-    protected float getMovement(Key pos, Key neg, float speed) {
-        boolean enPos = window.testKey(pos);
-        boolean enNeg = window.testKey(neg);
+    protected float getMovement(int posKey, int negKey, float speed) {
+        boolean enPos = window.getKey(posKey) == GLFW_PRESS || window.getKey(posKey) == GLFW_REPEAT;
+        boolean enNeg = window.getKey(negKey) == GLFW_PRESS || window.getKey(negKey) == GLFW_REPEAT;
 
         if (enPos == enNeg) {
             // All enabled or all disabled
             return 0;
-        } else
+        } else {
             return enPos ? speed : -speed;
+        }
     }
 
     @EventHandler
-    public void onCursorMove(CursorMoveEvent e) {
+    public void onCursorPos(WindowCursorMoveEvent e) {
         if (OpenverseClient.get().isCaptureInput()) {
-            cumulativeYaw += (float) (e.getX() - lastCursorX) * SENSIBILITY;
-            cumulativePitch += (float) (e.getY() - lastCursorY) * SENSIBILITY;
+            cumulativeYaw += (float) (e.getXPos() - lastCursorX) * SENSIBILITY;
+            cumulativePitch += (float) (e.getYPos() - lastCursorY) * SENSIBILITY;
         }
 
-        lastCursorX = e.getX();
-        lastCursorY = e.getY();
+        lastCursorX = e.getXPos();
+        lastCursorY = e.getYPos();
     }
 }

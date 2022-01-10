@@ -1,10 +1,9 @@
-package xyz.upperlevel.openverse.client.resource.program;
+package xyz.upperlevel.openverse.client.resource;
 
 import lombok.Getter;
 import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.openverse.resource.ResourceLoader;
+import xyz.upperlevel.openverse.client.gl.Program;
 import xyz.upperlevel.openverse.resource.ResourceRegistry;
-import xyz.upperlevel.ulge.opengl.shader.Program;
 
 import java.io.File;
 import java.util.logging.Logger;

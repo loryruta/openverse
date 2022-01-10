@@ -8,9 +8,8 @@ import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 import xyz.upperlevel.openverse.client.Launcher;
-import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.openverse.client.util.GLUtil;
-import xyz.upperlevel.ulge.window.Window;
+import xyz.upperlevel.openverse.client.gl.GLUtil;
+import xyz.upperlevel.openverse.client.window.Window;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
@@ -54,8 +53,8 @@ public class SSAOPass {
          throw new IllegalStateException("Couldn't load SSAO program", e);
       }
 
-      Window window = Launcher.get().getGame().getWindow();
-      recreateFramebuffer(window.getWidth(), window.getHeight());
+      Window w = Launcher.get().getWindow();
+      recreateFramebuffer(w.getWidth(), w.getHeight());
 
       initKernelSamples();
       initNoiseTexture();
@@ -141,7 +140,7 @@ public class SSAOPass {
 
    public void run(GBuffer gBuffer, Matrix4f view, Matrix4f projection) {
       try (MemoryStack stack = MemoryStack.stackPush()) { // todo is using stack efficient ? how does it work ?
-         glUseProgram(program.getProgramName());
+         program.getProgram().use();
 
          glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
@@ -181,8 +180,8 @@ public class SSAOPass {
          glBindTexture(GL_TEXTURE_2D, noiseTexture);
 
          // screen dim
-         Window window = Launcher.get().getGame().getWindow();
-         glUniform2f(SSAOProgram.UNIFORM_SCREEN_DIM, window.getWidth(), window.getHeight());
+         Window w = Launcher.get().getWindow();
+         glUniform2f(SSAOProgram.UNIFORM_SCREEN_DIM, w.getWidth(), w.getHeight());
 
          glBindVertexArray(GLUtil.getEmptyVao());
          glBindBuffer(GL_ARRAY_BUFFER, 0);

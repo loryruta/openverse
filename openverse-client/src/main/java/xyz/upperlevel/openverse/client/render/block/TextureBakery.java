@@ -1,85 +1,168 @@
 package xyz.upperlevel.openverse.client.render.block;
 
+import lombok.Getter;
 import org.lwjgl.BufferUtils;
-import xyz.upperlevel.openverse.Openverse;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
 import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.ulge.opengl.texture.Texture2dArray;
-import xyz.upperlevel.ulge.opengl.texture.loader.ImageContent;
+import xyz.upperlevel.openverse.client.gl.GLUtil;
 
-import javax.imageio.ImageIO;
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
+import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.glTexSubImage3D;
 import static org.lwjgl.opengl.GL30.GL_TEXTURE_2D_ARRAY;
 import static org.lwjgl.opengl.GL30.glGenerateMipmap;
+import static org.lwjgl.opengl.GL42.glTexStorage3D;
+import static org.lwjgl.opengl.GL43.glCopyImageSubData;
+import static org.lwjgl.stb.STBImage.*;
 
-public final class TextureBakery {
-    public static final int NULL_LAYER = 0;
+public class TextureBakery {
+    public static final int TEXTURE_ALLOC_BLOCK_SIZE = 128; // in number of layers
+    public static final int MIPMAP_LEVELS = 4;
+    public static final int MAX_TEXTURE_WIDTH  = 16; // todo what if a user wants a different tex size?
+    public static final int MAX_TEXTURE_HEIGHT = 16;
+    public static final int MAX_TEXTURE_SIZE   = MAX_TEXTURE_WIDTH * MAX_TEXTURE_HEIGHT;
 
-    public static final ImageContent NULL;
+    private static TextureBakery instance;
 
-    static {
-        ByteBuffer data = BufferUtils.createByteBuffer(4 * 16 * 16);
-        for (int i = 0; i < 16 * 16; i++)
-            data.put(new byte[]{(byte) 255, (byte) 255, (byte) 255, (byte) 255});
-        data.flip();
-        NULL = new ImageContent(16, 16, data);
+    private final Map<String, Integer> layerByTexName = new HashMap<>();
+
+    @Getter
+    private int textureArray = -1;
+
+    private int allocTexCount = 0;
+    private int texCount = 0;
+
+    public TextureBakery() {
+        storeTexture("null", createNullTexture());
     }
 
-    public static Texture2dArray textureArray;
-    private static Map<Path, ImageContent> registered = new HashMap<>();
-    private static Map<Path, Integer> layers;
-
-    public static void load(Path path) {
-        try {
-            register(path, new ImageContent(ImageIO.read(path.toFile())));
-        } catch (IOException ignored) {
+    public void destroy() {
+        if (textureArray >= 0) {
+            glDeleteTextures(textureArray);
         }
     }
 
-    public static void register(Path path, ImageContent image) {
-        registered.put(path, image);
+    protected ByteBuffer createNullTexture() {
+        ByteBuffer byteBuf = BufferUtils.createByteBuffer(MAX_TEXTURE_SIZE * 4);
+        for (int i = 0; i < MAX_TEXTURE_SIZE; i++) {
+            byteBuf.put((byte) 255);
+            byteBuf.put((byte) 255);
+            byteBuf.put((byte) 255);
+            byteBuf.put((byte) 255);
+        }
+        byteBuf.flip();
+        return byteBuf;
     }
 
-    public static void bake() {
-        OpenverseClient.get().getLogger().info("Baking " + registered.size() + " textures...");
-        layers = new HashMap<>();
-        textureArray = new Texture2dArray();
-        textureArray.allocate(4, GL_RGBA8, 16, 16, 1 + registered.size());
-        textureArray.load(0, NULL);
-        int layer = 1;
-        for (Map.Entry<Path, ImageContent> entry : registered.entrySet()) {
-            if (layers.put(entry.getKey(), layer) == null) { // if it wasn't already present
-                textureArray.load(layer, entry.getValue());
-                glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                layer++;
+    public void storeTexture(String texName, ByteBuffer texData) {
+        if (layerByTexName.containsKey(texName)) {
+            return;
+        }
+
+        if (texCount == allocTexCount) { // Realloc (increase capacity by TEXTURE_ALLOC_BLOCK_SIZE)
+            int newTexArr = glGenTextures();
+            glBindTexture(GL_TEXTURE_2D_ARRAY, newTexArr);
+            glTexStorage3D(GL_TEXTURE_2D_ARRAY, MIPMAP_LEVELS, GL_RGBA8, MAX_TEXTURE_WIDTH, MAX_TEXTURE_HEIGHT, allocTexCount + TEXTURE_ALLOC_BLOCK_SIZE);
+
+            if (textureArray >= 0) {
+                for (int mipmapLevel = 0; mipmapLevel < MIPMAP_LEVELS; mipmapLevel++) {
+                    glCopyImageSubData(
+                            textureArray,
+                            GL_TEXTURE_2D_ARRAY,
+                            mipmapLevel,
+                            0, 0, 0,
+                            newTexArr,
+                            GL_TEXTURE_2D_ARRAY,
+                            mipmapLevel,
+                            0, 0, 0,
+                            MAX_TEXTURE_WIDTH, MAX_TEXTURE_HEIGHT, allocTexCount
+                    );
+                }
+
+                glDeleteTextures(textureArray);
             }
+
+            textureArray = newTexArr;
+
+            allocTexCount += TEXTURE_ALLOC_BLOCK_SIZE;
         }
-        OpenverseClient.get().getLogger().info("Textures baked!");
+
+        glBindTexture(GL_TEXTURE_2D_ARRAY, textureArray);
+        glTexSubImage3D(
+                GL_TEXTURE_2D_ARRAY,
+                0,
+                0, 0, texCount,
+                MAX_TEXTURE_WIDTH, MAX_TEXTURE_HEIGHT, 1,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                texData
+        );
+
+        glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        layerByTexName.put(texName, texCount);
+
+        OpenverseClient.logger().fine("[TextureBakery] Registered texture: " + texName);
+
+        texCount++;
     }
 
-    public static void bind() {
-        if (textureArray != null) {
-            textureArray.bind();
+    public void loadAndStoreTexture(String texName, ByteBuffer formattedTexData) {
+        if (layerByTexName.containsKey(texName)) {
+            return;
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer widthBuf  = stack.mallocInt(1);
+            IntBuffer heightBuf = stack.mallocInt(1);
+            IntBuffer compBuf   = stack.mallocInt(1);
+
+            if (!stbi_info_from_memory(formattedTexData, widthBuf, heightBuf, compBuf)) {
+                throw new RuntimeException("Failed to read image information: " + stbi_failure_reason());
+            }
+
+            Logger logger = OpenverseClient.logger();
+            logger.info("Texture: " + texName + " - Width: " + widthBuf.get(0) + " - Height: " + heightBuf.get(0) + " - Components: " + compBuf.get(0));
+
+            ByteBuffer texBuf = stbi_load_from_memory(formattedTexData, widthBuf, heightBuf, compBuf, STBI_rgb_alpha);
+            if (texBuf == null) {
+                throw new RuntimeException("STB image loading failed: " + stbi_failure_reason());
+            }
+
+            storeTexture(texName, texBuf);
+
+            stbi_image_free(texBuf);
         }
     }
 
-    public static int getLayer(Path path) {
-        return layers.get(path);
+    public void loadAndStoreTexture(File file) throws IOException {
+        loadAndStoreTexture(file.getPath(), GLUtil.read(file));
     }
 
-    public static void destroy() {
-        registered.clear();
-        registered = null;
-        textureArray.destroy();
-        textureArray = null;
+    public int getLayer(String texName) {
+        return layerByTexName.get(texName);
+    }
+
+    public int getLayer(File file) {
+        return getLayer(file.getPath());
+    }
+
+    public static TextureBakery get() {
+        if (instance == null) {
+            instance = new TextureBakery();
+        }
+        return instance;
     }
 }

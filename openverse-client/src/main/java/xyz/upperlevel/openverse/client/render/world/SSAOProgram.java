@@ -1,7 +1,9 @@
 package xyz.upperlevel.openverse.client.render.world;
 
 import lombok.Getter;
-import xyz.upperlevel.openverse.client.util.GLUtil;
+import xyz.upperlevel.openverse.client.gl.GLUtil;
+import xyz.upperlevel.openverse.client.gl.Program;
+import xyz.upperlevel.openverse.client.gl.Shader;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,39 +23,28 @@ public class SSAOProgram {
     public static final int KERNEL_SIZE = 256;
 
     @Getter
-    private final int programName;
+    private final Program program;
 
     public SSAOProgram() throws IOException {
-        programName = glCreateProgram();
+        this.program = Program.create();
 
-        String log;
+        Shader vtxShader = Shader.create(GL_VERTEX_SHADER);
+        vtxShader.loadSource(new FileInputStream("resources/shaders/screen_quad.vert"));
+        vtxShader.compile();
+        program.attachShader(vtxShader);
 
-        int vtxShader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vtxShader, GLUtil.readText(new FileInputStream("resources/shaders/screen_quad.vert")));
-        glCompileShader(vtxShader);
-        if ((log = GLUtil.getShaderCompilationInfoLog(vtxShader)) != null) {
-            throw new IllegalStateException(log);
-        }
-        glAttachShader(programName, vtxShader);
+        Shader fragShader = Shader.create(GL_FRAGMENT_SHADER);
+        fragShader.loadSource(new FileInputStream("resources/shaders/ssao.frag"));
+        fragShader.compile();
+        program.attachShader(fragShader);
 
-        int fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragShader, GLUtil.readText(new FileInputStream("resources/shaders/ssao.frag")));
-        glCompileShader(fragShader);
-        if ((log = GLUtil.getShaderCompilationInfoLog(fragShader)) != null) {
-            throw new IllegalStateException(log);
-        }
-        glAttachShader(programName, fragShader);
+        program.link();
 
-        glLinkProgram(programName);
-        if ((log = GLUtil.getProgramLinkingInfoLog(programName)) != null) {
-            throw new IllegalStateException(log);
-        }
-
-        glDeleteShader(vtxShader);
-        glDeleteShader(fragShader);
+        vtxShader.destroy();
+        fragShader.destroy();
     }
 
     public void destroy() {
-        glDeleteProgram(programName);
+        program.destroy();
     }
 }

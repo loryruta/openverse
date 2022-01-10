@@ -1,7 +1,6 @@
 package xyz.upperlevel.openverse.client.dbg;
 
 import org.lwjgl.BufferUtils;
-import org.lwjgl.glfw.*;
 import org.lwjgl.nuklear.*;
 import org.lwjgl.stb.STBTTAlignedQuad;
 import org.lwjgl.stb.STBTTFontinfo;
@@ -9,6 +8,9 @@ import org.lwjgl.stb.STBTTPackContext;
 import org.lwjgl.stb.STBTTPackedchar;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
+import xyz.upperlevel.event.EventHandler;
+import xyz.upperlevel.event.Listener;
+import xyz.upperlevel.openverse.client.window.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,13 +45,14 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
 
 // https://www.thecodingfox.com/nuklear-usage-guide-lwjgl
+// https://github.com/LWJGL/lwjgl3/blob/master/modules/samples/src/test/java/org/lwjgl/demo/nuklear/GLFWDemo.java
 
-public class DebugGuiManager {
+public class DebugGuiManager implements Listener {
     public static final File FONT_PATH = new File("resources/fonts/Roboto-Regular.ttf");
 
-    private final long mWindow;
+    private final Window window;
 
-    private final NkContext mContext;
+    private final NkContext context;
     private final NkUserFont mDefaultFont;
     private final NkBuffer mCommandBuffer = NkBuffer.create();
     private final NkDrawNullTexture mNullTexture = NkDrawNullTexture.create();
@@ -81,142 +84,35 @@ public class DebugGuiManager {
                 .flip();
     }
 
+    public DebugGuiManager(Window window) {
+        this.window = window;
 
-    public DebugGuiManager(long window) {
-        this.mWindow = window;
-        this.mContext = NkContext.create();
+        this.context = NkContext.create();
         this.mDefaultFont = NkUserFont.create();
 
-        nk_init(this.mContext, ALLOCATOR, null);
+        nk_init(this.context, ALLOCATOR, null);
 
-        setupWindowBindings();
         setupGraphicsObjects();
         loadFont();
+
+        window.getEventManager().register(this);
     }
 
-    private void setupWindowBindings() {
-        glfwSetScrollCallback(this.mWindow, new GLFWScrollCallback() {
-            @Override
-            public void invoke(long window, double xoffset, double yoffset) {
-                try (MemoryStack stack = stackPush()) {
-                    NkVec2 scroll = NkVec2.mallocStack(stack)
-                            .x((float) xoffset)
-                            .y((float) yoffset);
-                    nk_input_scroll(mContext, scroll);
-                }
-            }
-        });
+    public void destroy() {
+        glDetachShader(mProgram, mVertexShader);
+        glDetachShader(mProgram, mFragmentShader);
+        glDeleteShader(mVertexShader);
+        glDeleteShader(mFragmentShader);
 
-        glfwSetCharCallback(this.mWindow, new GLFWCharCallback() {
-            @Override
-            public void invoke(long window, int codepoint) {
-                nk_input_unicode(mContext, codepoint);
-            }
-        });
+        glDeleteProgram(mProgram);
 
-        glfwSetKeyCallback(this.mWindow, new GLFWKeyCallback() {
-            @Override
-            public void invoke(long window, int key, int scancode, int action, int mods) {
-                boolean press = action == GLFW_PRESS;
-                switch (key) {
-                    case GLFW_KEY_ESCAPE:
-                        glfwSetWindowShouldClose(window, true);
-                        break;
-                    case GLFW_KEY_DELETE:
-                        nk_input_key(mContext, NK_KEY_DEL, press);
-                        break;
-                    case GLFW_KEY_ENTER:
-                        nk_input_key(mContext, NK_KEY_ENTER, press);
-                        break;
-                    case GLFW_KEY_TAB:
-                        nk_input_key(mContext, NK_KEY_TAB, press);
-                        break;
-                    case GLFW_KEY_BACKSPACE:
-                        nk_input_key(mContext, NK_KEY_BACKSPACE, press);
-                        break;
-                    case GLFW_KEY_UP:
-                        nk_input_key(mContext, NK_KEY_UP, press);
-                        break;
-                    case GLFW_KEY_DOWN:
-                        nk_input_key(mContext, NK_KEY_DOWN, press);
-                        break;
-                    case GLFW_KEY_HOME:
-                        nk_input_key(mContext, NK_KEY_TEXT_START, press);
-                        nk_input_key(mContext, NK_KEY_SCROLL_START, press);
-                        break;
-                    case GLFW_KEY_END:
-                        nk_input_key(mContext, NK_KEY_TEXT_END, press);
-                        nk_input_key(mContext, NK_KEY_SCROLL_END, press);
-                        break;
-                    case GLFW_KEY_PAGE_DOWN:
-                        nk_input_key(mContext, NK_KEY_SCROLL_DOWN, press);
-                        break;
-                    case GLFW_KEY_PAGE_UP:
-                        nk_input_key(mContext, NK_KEY_SCROLL_UP, press);
-                        break;
-                    case GLFW_KEY_LEFT_SHIFT:
-                    case GLFW_KEY_RIGHT_SHIFT:
-                        nk_input_key(mContext, NK_KEY_SHIFT, press);
-                        break;
-                    case GLFW_KEY_LEFT_CONTROL:
-                    case GLFW_KEY_RIGHT_CONTROL:
-                        if (press) {
-                            nk_input_key(mContext, NK_KEY_COPY, glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_PASTE, glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_CUT, glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_UNDO, glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_REDO, glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_WORD_LEFT, glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_WORD_RIGHT, glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_LINE_START, glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_TEXT_LINE_END, glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS);
-                        } else {
-                            nk_input_key(mContext, NK_KEY_LEFT, glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_RIGHT, glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS);
-                            nk_input_key(mContext, NK_KEY_COPY, false);
-                            nk_input_key(mContext, NK_KEY_PASTE, false);
-                            nk_input_key(mContext, NK_KEY_CUT, false);
-                            nk_input_key(mContext, NK_KEY_SHIFT, false);
-                        }
-                        break;
-                }
-            }
-        });
+        glDeleteTextures(mDefaultFont.texture().id());
+        glDeleteTextures(mNullTexture.texture().id());
 
-        glfwSetCursorPosCallback(this.mWindow, new GLFWCursorPosCallback() {
-            @Override
-            public void invoke(long window, double xpos, double ypos) {
-                nk_input_motion(mContext, (int) xpos, (int) ypos);
-            }
-        });
+        glDeleteBuffers(mVbo);
+        glDeleteBuffers(mEbo);
 
-        glfwSetMouseButtonCallback(this.mWindow, new GLFWMouseButtonCallback() {
-            @Override
-            public void invoke(long window, int button, int action, int mods) {
-                try (MemoryStack stack = stackPush()) {
-                    DoubleBuffer cx = stack.mallocDouble(1);
-                    DoubleBuffer cy = stack.mallocDouble(1);
-
-                    glfwGetCursorPos(window, cx, cy);
-
-                    int x = (int)cx.get(0);
-                    int y = (int)cy.get(0);
-
-                    int nkButton;
-                    switch (button) {
-                        case GLFW_MOUSE_BUTTON_RIGHT:
-                            nkButton = NK_BUTTON_RIGHT;
-                            break;
-                        case GLFW_MOUSE_BUTTON_MIDDLE:
-                            nkButton = NK_BUTTON_MIDDLE;
-                            break;
-                        default:
-                            nkButton = NK_BUTTON_LEFT;
-                    }
-                    nk_input_button(mContext, nkButton, x, y, action == GLFW_PRESS);
-                }
-            }
-        });
+        nk_buffer_free(mCommandBuffer);
     }
 
     private void setupGraphicsObjects() {
@@ -476,7 +372,7 @@ public class DebugGuiManager {
                 })
                 .texture().id(fontTexID);
 
-        nk_style_set_font(mContext, mDefaultFont);
+        nk_style_set_font(context, mDefaultFont);
     }
 
     public void render() {
@@ -491,12 +387,12 @@ public class DebugGuiManager {
             IntBuffer wBuf = stack.mallocInt(1);
             IntBuffer hBuf = stack.mallocInt(1);
 
-            glfwGetWindowSize(mWindow, wBuf, hBuf);
+            glfwGetWindowSize(window.getWindowId(), wBuf, hBuf);
 
             width  = wBuf.get(0);
             height = hBuf.get(0);
 
-            glfwGetFramebufferSize(mWindow, wBuf, hBuf);
+            glfwGetFramebufferSize(window.getWindowId(), wBuf, hBuf);
             displayWidth  = wBuf.get(0);
             displayHeight = hBuf.get(0);
         }
@@ -554,7 +450,7 @@ public class DebugGuiManager {
                 nk_buffer_init_fixed(vtxBuf, vertices/*, max_vertex_buffer*/);
                 nk_buffer_init_fixed(elBuf, elements/*, max_element_buffer*/);
 
-                nk_convert(mContext, mCommandBuffer, vtxBuf, elBuf, convertCfg);
+                nk_convert(context, mCommandBuffer, vtxBuf, elBuf, convertCfg);
             }
 
             glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
@@ -565,7 +461,7 @@ public class DebugGuiManager {
             float fbScaleY = (float) displayHeight / (float)height;
 
             long offset = NULL;
-            for (NkDrawCommand cmd = nk__draw_begin(mContext, mCommandBuffer); cmd != null; cmd = nk__draw_next(cmd, mCommandBuffer, mContext)) {
+            for (NkDrawCommand cmd = nk__draw_begin(context, mCommandBuffer); cmd != null; cmd = nk__draw_next(cmd, mCommandBuffer, context)) {
                 if (cmd.elem_count() == 0) {
                     continue;
                 }
@@ -579,7 +475,7 @@ public class DebugGuiManager {
                 glDrawElements(GL_TRIANGLES, cmd.elem_count(), GL_UNSIGNED_SHORT, offset);
                 offset += cmd.elem_count() * 2;
             }
-            nk_clear(mContext);
+            nk_clear(context);
         }
 
         // default OpenGL state
@@ -591,20 +487,117 @@ public class DebugGuiManager {
         glDisable(GL_SCISSOR_TEST);
     }
 
-    public void destroy() {
-        glDetachShader(mProgram, mVertexShader);
-        glDetachShader(mProgram, mFragmentShader);
-        glDeleteShader(mVertexShader);
-        glDeleteShader(mFragmentShader);
+    @EventHandler
+    protected void onScrollCallback(WindowScrollEvent e) {
+        try (MemoryStack stack = stackPush()) {
+            NkVec2 scroll = NkVec2.mallocStack(stack)
+                    .x((float) e.getXOffset())
+                    .y((float) e.getYOffset());
+            nk_input_scroll(context, scroll);
+        }
+    }
 
-        glDeleteProgram(mProgram);
+    @EventHandler
+    protected void onCharCallback(WindowCharEvent e) {
+        nk_input_unicode(context, e.getCodepoint());
+    }
 
-        glDeleteTextures(mDefaultFont.texture().id());
-        glDeleteTextures(mNullTexture.texture().id());
+    @EventHandler
+    protected void onKeyCallback(WindowKeyChangeEvent e) {
+        Window window = e.getWindow();
+        boolean press = e.getAction() == GLFW_PRESS;
+        switch (e.getKey()) {
+            case GLFW_KEY_ESCAPE:
+                window.setShouldClose(true);
+                break;
+            case GLFW_KEY_DELETE:
+                nk_input_key(context, NK_KEY_DEL, press);
+                break;
+            case GLFW_KEY_ENTER:
+                nk_input_key(context, NK_KEY_ENTER, press);
+                break;
+            case GLFW_KEY_TAB:
+                nk_input_key(context, NK_KEY_TAB, press);
+                break;
+            case GLFW_KEY_BACKSPACE:
+                nk_input_key(context, NK_KEY_BACKSPACE, press);
+                break;
+            case GLFW_KEY_UP:
+                nk_input_key(context, NK_KEY_UP, press);
+                break;
+            case GLFW_KEY_DOWN:
+                nk_input_key(context, NK_KEY_DOWN, press);
+                break;
+            case GLFW_KEY_HOME:
+                nk_input_key(context, NK_KEY_TEXT_START, press);
+                nk_input_key(context, NK_KEY_SCROLL_START, press);
+                break;
+            case GLFW_KEY_END:
+                nk_input_key(context, NK_KEY_TEXT_END, press);
+                nk_input_key(context, NK_KEY_SCROLL_END, press);
+                break;
+            case GLFW_KEY_PAGE_DOWN:
+                nk_input_key(context, NK_KEY_SCROLL_DOWN, press);
+                break;
+            case GLFW_KEY_PAGE_UP:
+                nk_input_key(context, NK_KEY_SCROLL_UP, press);
+                break;
+            case GLFW_KEY_LEFT_SHIFT:
+            case GLFW_KEY_RIGHT_SHIFT:
+                nk_input_key(context, NK_KEY_SHIFT, press);
+                break;
+            case GLFW_KEY_LEFT_CONTROL:
+            case GLFW_KEY_RIGHT_CONTROL:
+                if (press) {
+                    nk_input_key(context, NK_KEY_COPY, window.getKey(GLFW_KEY_C) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_PASTE, window.getKey(GLFW_KEY_P) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_CUT, window.getKey(GLFW_KEY_X) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_UNDO, window.getKey(GLFW_KEY_Z) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_REDO, window.getKey(GLFW_KEY_R) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_WORD_LEFT, window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_WORD_RIGHT, window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_LINE_START, window.getKey(GLFW_KEY_B) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_TEXT_LINE_END, window.getKey(GLFW_KEY_E) == GLFW_PRESS);
+                } else {
+                    nk_input_key(context, NK_KEY_LEFT, window.getKey(GLFW_KEY_LEFT) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_RIGHT, window.getKey(GLFW_KEY_RIGHT) == GLFW_PRESS);
+                    nk_input_key(context, NK_KEY_COPY, false);
+                    nk_input_key(context, NK_KEY_PASTE, false);
+                    nk_input_key(context, NK_KEY_CUT, false);
+                    nk_input_key(context, NK_KEY_SHIFT, false);
+                }
+                break;
+        }
+    }
 
-        glDeleteBuffers(mVbo);
-        glDeleteBuffers(mEbo);
+    @EventHandler
+    protected void onCursorPosCallback(WindowCursorMoveEvent e) {
+        nk_input_motion(context, (int) e.getXPos(), (int) e.getYPos());
+    }
 
-        nk_buffer_free(mCommandBuffer);
+    @EventHandler
+    protected void onMouseButtonCallback(WindowMouseButtonChangeEvent e) {
+        try (MemoryStack stack = stackPush()) {
+            DoubleBuffer cx = stack.mallocDouble(1);
+            DoubleBuffer cy = stack.mallocDouble(1);
+
+            glfwGetCursorPos(e.getWindow().getWindowId(), cx, cy);
+
+            int x = (int)cx.get(0);
+            int y = (int)cy.get(0);
+
+            int nkButton;
+            switch (e.getButton()) {
+                case GLFW_MOUSE_BUTTON_RIGHT:
+                    nkButton = NK_BUTTON_RIGHT;
+                    break;
+                case GLFW_MOUSE_BUTTON_MIDDLE:
+                    nkButton = NK_BUTTON_MIDDLE;
+                    break;
+                default:
+                    nkButton = NK_BUTTON_LEFT;
+            }
+            nk_input_button(context, nkButton, x, y, e.getAction() == GLFW_PRESS);
+        }
     }
 }

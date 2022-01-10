@@ -1,13 +1,10 @@
 package xyz.upperlevel.openverse.client.game;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.lwjgl.opengl.GL11;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.block.*;
 import xyz.upperlevel.openverse.client.render.world.ChunkViewRenderer;
-import xyz.upperlevel.ulge.game.Scene;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +44,6 @@ public class ResourceScene implements Scene {
         BlockTypeModelMapper.load(client.getResources().blockTypes().entry("test"), Paths.get("resources/blocks/test.json"));
         BlockTypeModelMapper.load(client.getResources().blockTypes().entry("photon"), Paths.get("resources/blocks/photon.json"));
 
-        TextureBakery.bake();
         OpenverseClient.get().getItemRendererRegistry().registerDefaults(client.getResources().itemTypes()); // bakes item icons
 
         client.getLogger().info("Resources loaded in " + (System.currentTimeMillis() - init) + " ms.");

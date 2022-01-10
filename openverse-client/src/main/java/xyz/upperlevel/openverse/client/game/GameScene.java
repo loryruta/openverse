@@ -3,18 +3,14 @@ package xyz.upperlevel.openverse.client.game;
 import lombok.Getter;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.Listener;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
+import xyz.upperlevel.openverse.client.window.Window;
+import xyz.upperlevel.openverse.client.window.WindowKeyChangeEvent;
 import xyz.upperlevel.openverse.event.ShutdownEvent;
-import xyz.upperlevel.ulge.game.Game;
-import xyz.upperlevel.ulge.game.Scene;
-import xyz.upperlevel.ulge.game.Stage;
-import xyz.upperlevel.ulge.window.Window;
-import xyz.upperlevel.ulge.window.event.KeyChangeEvent;
-import xyz.upperlevel.ulge.window.event.action.Action;
 
-import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
 public class GameScene extends Stage implements Listener {
     @Getter
@@ -24,42 +20,32 @@ public class GameScene extends Stage implements Listener {
     private final ClientScene parent;
 
     @Getter
-    private Game game;
-
-    @Getter
-    private Window window;
+    private final Window window;
 
     public GameScene(OpenverseClient client, ClientScene parent) {
         this.client = client;
 
         this.parent = parent;
-        game = Launcher.get().getGame();
-        window = game.getWindow();
+
+        this.window = Launcher.get().getWindow();
         window.getEventManager().register(this);
-        window.setCursorEnabled(false);
     }
 
     @Override
     public void onEnable(Scene previous) {
         client.getLogger().info("Listening for world packets...");
-        glEnable(GL_TEXTURE_2D);
-
-        glEnable(GL_CULL_FACE);
-        glFrontFace(GL_CCW);
-        glCullFace(GL_BACK);
-        window.setVSync(false);
 
         setScene(new ReceivingWorldScene(client, this));
     }
 
     @Override
     public void onRender() {
-        getScene().onRender();
+        getCurrentScene().onRender();
     }
 
     @Override
     public void onDisable(Scene next) {
-        getScene().onDisable(next);
+        getCurrentScene().onDisable(next);
         client.getEventManager().call(new ShutdownEvent());
         System.exit(0);//Damn it jline, really?
     }
@@ -67,21 +53,21 @@ public class GameScene extends Stage implements Listener {
     @Override
     public void onTick() {
         OpenverseClient.get().onTick();
-        getScene().onTick();
+        getCurrentScene().onTick();
     }
 
     @Override
     public void onFps() {
-        getScene().onFps();
+        getCurrentScene().onFps();
     }
 
     @EventHandler
-    public void onKeyChange(KeyChangeEvent e) {
+    public void onWindowKey(WindowKeyChangeEvent e) {
         if (!OpenverseClient.get().isCaptureInput()) return;
-        if (e.getAction() == Action.PRESS) {
+        if (e.getAction() == GLFW_PRESS) {
             switch (e.getKey()) {
-                case ESCAPE:
-                    Launcher.get().getGame().stop();
+                case GLFW_KEY_ESCAPE:
+                    Launcher.get().halt();
                     break;
             }
         }

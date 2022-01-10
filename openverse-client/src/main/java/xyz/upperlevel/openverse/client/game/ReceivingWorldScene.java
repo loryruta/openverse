@@ -1,19 +1,16 @@
 package xyz.upperlevel.openverse.client.game;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.lwjgl.opengl.GL11;
 import xyz.upperlevel.hermes.Connection;
 import xyz.upperlevel.hermes.reflect.PacketHandler;
 import xyz.upperlevel.hermes.reflect.PacketListener;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.world.ClientWorld;
 import xyz.upperlevel.openverse.client.world.KeyboardInputEntityDriver;
 import xyz.upperlevel.openverse.network.world.entity.PlayerChangeWorldPacket;
 import xyz.upperlevel.openverse.world.Location;
 import xyz.upperlevel.openverse.world.entity.player.Player;
-import xyz.upperlevel.ulge.game.Scene;
 
 public class ReceivingWorldScene implements Scene, PacketListener {
     @Getter
@@ -57,7 +54,7 @@ public class ReceivingWorldScene implements Scene, PacketListener {
         ClientWorld w = new ClientWorld(client, pkt.getWorldName());
         Player pl = new Player(client, new Location(w, 0, 0, 0), "Maurizio"); // TODO add real player
         pl.setConnection(conn);
-        pl.setDriver(new KeyboardInputEntityDriver(gameScene.getWindow()));
+        pl.setDriver(new KeyboardInputEntityDriver());
         client.getEntityManager().register(pl);
         gameScene.setScene(new PlayingWorldScene(client, pl));
         client.getLogger().info("Received world, now you can play!");

@@ -8,10 +8,11 @@ import xyz.upperlevel.event.Listener;
 import xyz.upperlevel.hermes.Connection;
 import xyz.upperlevel.hermes.reflect.PacketHandler;
 import xyz.upperlevel.hermes.reflect.PacketListener;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.openverse.client.resource.ClientResources;
+import xyz.upperlevel.openverse.client.util.CameraUtil;
+import xyz.upperlevel.openverse.client.window.Window;
+import xyz.upperlevel.openverse.client.window.WindowResizeEvent;
 import xyz.upperlevel.openverse.network.inventory.InventoryContentPacket;
 import xyz.upperlevel.openverse.network.inventory.PlayerCloseInventoryPacket;
 import xyz.upperlevel.openverse.network.inventory.PlayerOpenInventoryPacket;
@@ -24,11 +25,6 @@ import xyz.upperlevel.openverse.world.Location;
 import xyz.upperlevel.openverse.world.entity.LivingEntity;
 import xyz.upperlevel.openverse.world.entity.player.Player;
 import xyz.upperlevel.openverse.world.entity.player.PlayerInventory;
-import xyz.upperlevel.ulge.opengl.shader.Program;
-import xyz.upperlevel.ulge.opengl.shader.Uniform;
-import xyz.upperlevel.ulge.util.math.CameraUtil;
-import xyz.upperlevel.ulge.window.Window;
-import xyz.upperlevel.ulge.window.event.ResizeEvent;
 
 /**
  * This class represents the player.
@@ -45,6 +41,7 @@ public class WorldViewer implements PacketListener, Listener {
     @Setter
     private LivingEntity entity;
 
+    private final Matrix4f viewMtx = new Matrix4f(), projMtx = new Matrix4f();
     private float aspectRatio = 1f;
 
     public WorldViewer(OpenverseClient client, LivingEntity entity) {
@@ -52,8 +49,10 @@ public class WorldViewer implements PacketListener, Listener {
 
         this.entity = entity;
         this.worldSession = new WorldSession();
-        Window window = Launcher.get().getGame().getWindow();
-        window.getEventManager().register(this);
+
+        Window w = Launcher.get().getWindow();
+        w.getEventManager().register(this);
+
         reloadAspectRatio();
     }
 
@@ -67,19 +66,29 @@ public class WorldViewer implements PacketListener, Listener {
     public void render(float partialTicks) {
         Location loc = entity.getEyePosition(partialTicks);
 
-        Matrix4f view = CameraUtil.getView((float) Math.toRadians(loc.getYaw()), (float) Math.toRadians(loc.getPitch()), (float) loc.getX(), (float) loc.getY(), (float) loc.getZ());
-        Matrix4f proj = CameraUtil.getProjection(45f, aspectRatio, 0.01f, 1000f);
+        CameraUtil.createViewMatrix(
+                viewMtx,
+                (float) Math.toRadians(loc.getYaw()), (float) Math.toRadians(loc.getPitch()),
+                (float) loc.getX(), (float) loc.getY(), (float) loc.getZ()
+        );
 
-        worldSession.getChunkView().render(view, proj);
+        CameraUtil.createPerspectiveMatrix(
+                projMtx,
+                45f,
+                aspectRatio,
+                0.01f, 1000f
+        );
+
+        worldSession.getChunkView().render(viewMtx, projMtx);
     }
 
     public void reloadAspectRatio() {
-        Window window = Launcher.get().getGame().getWindow();
-        aspectRatio = window.getWidth() / (float) window.getHeight();
+        Window w = Launcher.get().getWindow();
+        aspectRatio = w.getWidth() / (float) w.getHeight();
     }
 
     @EventHandler
-    public void onWindowResize(ResizeEvent event) {
+    public void onWindowResize(WindowResizeEvent e) {
         reloadAspectRatio();
     }
 

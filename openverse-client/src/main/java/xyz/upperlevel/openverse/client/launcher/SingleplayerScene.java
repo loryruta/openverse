@@ -4,9 +4,9 @@ import lombok.Getter;
 import xyz.upperlevel.hermes.client.impl.direct.DirectClient;
 import xyz.upperlevel.hermes.server.impl.direct.DirectServer;
 import xyz.upperlevel.openverse.client.OpenverseClient;
+import xyz.upperlevel.openverse.client.game.Scene;
+import xyz.upperlevel.openverse.client.game.Stage;
 import xyz.upperlevel.openverse.server.OpenverseServer;
-import xyz.upperlevel.ulge.game.Scene;
-import xyz.upperlevel.ulge.game.Stage;
 
 import java.io.PrintStream;
 

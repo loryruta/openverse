@@ -1,8 +1,9 @@
-package xyz.upperlevel.openverse.client.resource.shader;
+package xyz.upperlevel.openverse.client.resource;
 
+
+import xyz.upperlevel.openverse.client.gl.Shader;
 import xyz.upperlevel.openverse.resource.ResourceLoader;
 import xyz.upperlevel.openverse.resource.ResourceRegistry;
-import xyz.upperlevel.ulge.opengl.shader.Shader;
 
 import java.io.File;
 import java.util.logging.Logger;

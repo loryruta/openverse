@@ -7,6 +7,7 @@ import xyz.upperlevel.openverse.util.math.Aabb3f;
 import xyz.upperlevel.openverse.world.World;
 import xyz.upperlevel.openverse.world.block.BlockFace;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -18,7 +19,7 @@ public class BlockPart {
     private final Aabb3f aabb;
 
     @Getter
-    private final Path[] faceTextures = new Path[6];
+    private final File[] faceTextures = new File[6];
 
     @SuppressWarnings("unchecked")
     public BlockPart(Config cfg) {
@@ -38,12 +39,12 @@ public class BlockPart {
             Config faceCfg = Config.wrap((Map<String, Object>) faceMap.getValue());
             BlockFace face = BlockFace.valueOf(faceMap.getKey().toUpperCase(Locale.ENGLISH).replace("_", " "));
             
-            faceTextures[face.ordinal()] = Paths.get(faceCfg.getString("texture"));
+            faceTextures[face.ordinal()] = new File(faceCfg.getString("texture"));
         }
     }
 
     public int getFaceTextureLayerIndex(BlockFace blockFace) {
-        return TextureBakery.getLayer(faceTextures[blockFace.ordinal()]);
+        return TextureBakery.get().getLayer(faceTextures[blockFace.ordinal()]);
     }
 
     public int getVerticesCount() {

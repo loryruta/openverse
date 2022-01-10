@@ -2,7 +2,7 @@ package xyz.upperlevel.openverse.client.render.inventory;
 
 import lombok.Getter;
 import lombok.Setter;
-import xyz.upperlevel.ulge.gui.Gui;
+import xyz.upperlevel.openverse.client.gui.Gui;
 
 public class SlotContainerGui extends Gui {
     private SlotGui[] slots;

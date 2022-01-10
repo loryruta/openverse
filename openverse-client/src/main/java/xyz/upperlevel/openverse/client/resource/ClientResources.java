@@ -2,8 +2,6 @@ package xyz.upperlevel.openverse.client.resource;
 
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.block.TextureBakery;
-import xyz.upperlevel.openverse.client.resource.program.ProgramRegistry;
-import xyz.upperlevel.openverse.client.resource.shader.ShaderRegistry;
 import xyz.upperlevel.openverse.resource.Resources;
 import xyz.upperlevel.openverse.world.block.BlockTypeRegistry;
 

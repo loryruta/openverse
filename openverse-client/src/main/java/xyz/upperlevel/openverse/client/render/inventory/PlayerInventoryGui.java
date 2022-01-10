@@ -1,22 +1,23 @@
-package xyz.upperlevel.openverse.client.render.inventory.player;
+package xyz.upperlevel.openverse.client.render.inventory;
 
-import xyz.upperlevel.openverse.client.render.inventory.InventoryGui;
-import xyz.upperlevel.openverse.client.render.inventory.SlotContainerGui;
-import xyz.upperlevel.openverse.client.render.inventory.SlotGui;
-import xyz.upperlevel.openverse.inventory.Slot;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
+import xyz.upperlevel.openverse.client.gl.GLUtil;
+import xyz.upperlevel.openverse.client.gui.GuiAlign;
+import xyz.upperlevel.openverse.client.gui.GuiBackground;
+import xyz.upperlevel.openverse.client.gui.GuiBounds;
+import xyz.upperlevel.openverse.client.gui.GuiRenderer;
+import xyz.upperlevel.openverse.client.util.Color;
+import xyz.upperlevel.openverse.client.window.Window;
 import xyz.upperlevel.openverse.world.entity.player.PlayerInventory;
-import xyz.upperlevel.ulge.gui.GuiAlign;
-import xyz.upperlevel.ulge.gui.GuiBackground;
-import xyz.upperlevel.ulge.gui.GuiBounds;
-import xyz.upperlevel.ulge.gui.GuiRenderer;
-import xyz.upperlevel.ulge.opengl.texture.Texture2d;
-import xyz.upperlevel.ulge.opengl.texture.TextureFormat;
-import xyz.upperlevel.ulge.opengl.texture.TextureParameters;
-import xyz.upperlevel.ulge.opengl.texture.loader.ImageContent;
-import xyz.upperlevel.ulge.util.Color;
-import xyz.upperlevel.ulge.window.Window;
 
-import javax.imageio.ImageIO;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.stb.STBImage.*;
 
 public class PlayerInventoryGui extends InventoryGui<PlayerInventory> {
     /**
@@ -24,16 +25,16 @@ public class PlayerInventoryGui extends InventoryGui<PlayerInventory> {
      */
     private static final int SELECTION_DISTANCE = 5;
 
-    private static final Texture2d backgroundTexture;
-    private static final Texture2d selectionTexture;
+    private static final int backgroundTexture;
+    private static final int selectionTexture;
 
     private SlotContainerGui slotGui = new SlotContainerGui(9, 4);
     private SlotGui handSlot;
     private GuiBounds handSlotTexBounds;
 
     static {
-        backgroundTexture = loadTexture("guis/player_gui.png");
-        selectionTexture = loadTexture("guis/selection.png");
+        backgroundTexture = loadTexture("resources/guis/player_gui.png");
+        selectionTexture  = loadTexture("resources/guis/selection.png");
     }
 
     public PlayerInventoryGui(PlayerInventory handle) {
@@ -109,16 +110,37 @@ public class PlayerInventoryGui extends InventoryGui<PlayerInventory> {
         r.render(getWindow(), handSlotTexBounds);
     }
 
-    private static Texture2d loadTexture(String path) {
-        ImageContent content;
-        try {
-            content = new ImageContent(ImageIO.read(PlayerInventoryGui.class.getClassLoader().getResource(path)));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    private static int loadTexture(String path) { // TODO centralize texture management?
+        int tex = glGenTextures();
+        glBindTexture(GL_TEXTURE_2D, tex);
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer widthBuf  = stack.mallocInt(1);
+            IntBuffer heightBuf = stack.mallocInt(1);
+            IntBuffer compBuf   = stack.mallocInt(1);
+
+            ByteBuffer fmtImgBuf;
+            try {
+                fmtImgBuf = GLUtil.read(new File(path));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            ByteBuffer imgBuf = stbi_load_from_memory(fmtImgBuf, widthBuf, heightBuf, compBuf, STBImage.STBI_rgb_alpha);
+            if (imgBuf == null) {
+                throw new RuntimeException("STB image loading failed: " + stbi_failure_reason());
+            }
+
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, widthBuf.get(0), heightBuf.get(0), 0, GL_RGBA, GL_UNSIGNED_BYTE, imgBuf);
+
+            stbi_image_free(imgBuf);
         }
-        Texture2d res = new Texture2d();
-        res.loadImage(TextureFormat.RGBA, content);
-        res.setup(TextureParameters.getDefault());
-        return res;
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+        return tex;
     }
 }

@@ -1,6 +1,5 @@
 package xyz.upperlevel.openverse.client.render.inventory;
 
-import xyz.upperlevel.openverse.client.render.inventory.player.PlayerInventoryGui;
 import xyz.upperlevel.openverse.inventory.Inventory;
 import xyz.upperlevel.openverse.world.entity.player.PlayerInventory;
 

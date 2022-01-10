@@ -2,8 +2,6 @@ package xyz.upperlevel.openverse.client.game;
 
 import lombok.Getter;
 import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.ulge.game.Scene;
-import xyz.upperlevel.ulge.game.Stage;
 
 /**
  * This is the scene that the launcher searches for when call the client.

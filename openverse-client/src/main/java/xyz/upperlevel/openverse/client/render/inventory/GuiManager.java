@@ -1,36 +1,35 @@
 package xyz.upperlevel.openverse.client.render.inventory;
 
-import org.joml.Vector2d;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.EventPriority;
 import xyz.upperlevel.event.Listener;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
+import xyz.upperlevel.openverse.client.gui.GuiBounds;
+import xyz.upperlevel.openverse.client.gui.GuiViewer;
+import xyz.upperlevel.openverse.client.window.Window;
+import xyz.upperlevel.openverse.client.window.WindowKeyChangeEvent;
 import xyz.upperlevel.openverse.inventory.PlayerInventorySession;
 import xyz.upperlevel.openverse.inventory.Slot;
 import xyz.upperlevel.openverse.item.ItemStack;
 import xyz.upperlevel.openverse.world.entity.player.events.PlayerInventoryCloseEvent;
 import xyz.upperlevel.openverse.world.entity.player.events.PlayerInventoryOpenEvent;
-import xyz.upperlevel.ulge.gui.GuiBounds;
-import xyz.upperlevel.ulge.gui.GuiViewer;
-import xyz.upperlevel.ulge.window.Window;
-import xyz.upperlevel.ulge.window.event.KeyChangeEvent;
-import xyz.upperlevel.ulge.window.event.action.Action;
 
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.opengl.GL11.*;
 
 public class GuiManager implements Listener {
     private final OpenverseClient client;
 
-    private GuiViewer viewer = new GuiViewer(Launcher.get().getGame().getWindow());
+    private GuiViewer viewer = new GuiViewer(Launcher.get().getWindow());
     private HandSlotGui handSlotGui;
 
     public GuiManager(OpenverseClient client) {
         this.client = client;
 
         client.getEventManager().register(this);
-        Launcher.get().getGame().getWindow().getEventManager().register(KeyChangeEvent.class, this::onKey, EventPriority.HIGH);
+        Launcher.get().getWindow().getEventManager().register(WindowKeyChangeEvent.class, this::onKey, EventPriority.HIGH);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -52,11 +51,11 @@ public class GuiManager implements Listener {
         OpenverseClient.get().setCaptureInput(true);
     }
 
-    public void onKey(KeyChangeEvent event) {
+    public void onKey(WindowKeyChangeEvent e) {
         if (viewer.getHandle().isEmpty()) return;
-        if (event.getAction() == Action.PRESS){
-            switch (event.getKey()) {
-                case ESCAPE:
+        if (e.getAction() == GLFW_PRESS){
+            switch (e.getKey()) {
+                case GLFW_KEY_ESCAPE:
                     OpenverseClient.get().getPlayer().closeInventory();
                     break;
             }
@@ -85,10 +84,13 @@ public class GuiManager implements Listener {
                         .getContent();
                 if (!item.isEmpty()) {
                     Window window = viewer.getCurrent().getWindow();
-                    Vector2d mousePos = window.getCursorPosition();
+
+                    double mousePosX = window.getCursorX();
+                    double mousePosY = window.getCursorY();
+
                     ItemRenderer renderer = OpenverseClient.get().getItemRendererRegistry().get(item.getType(client.getResources().itemTypes()));
                     int size = Math.min(window.getWidth() / 10, window.getHeight() / 10);
-                    renderer.renderInSlot(item, window, new GuiBounds(mousePos.x - size/2, mousePos.y - size/2, mousePos.x + size, mousePos.y + size), handSlotGui);
+                    renderer.renderInSlot(item, window, new GuiBounds(mousePosX - size / 2.0, mousePosY - size / 2.0, mousePosX + size, mousePosY + size), handSlotGui);
                 }
             } else {
                 client.getLogger().warning("Null session!");

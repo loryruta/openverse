@@ -1,30 +1,29 @@
 package xyz.upperlevel.openverse.client;
 
 import lombok.Getter;
-import lombok.NonNull;
 import lombok.Setter;
 import xyz.upperlevel.event.EventManager;
 import xyz.upperlevel.hermes.Connection;
 import xyz.upperlevel.hermes.PacketSide;
 import xyz.upperlevel.hermes.channel.Channel;
 import xyz.upperlevel.hermes.client.Client;
-import xyz.upperlevel.openverse.Openverse;
 import xyz.upperlevel.openverse.OpenverseProxy;
+import xyz.upperlevel.openverse.client.dbg.DebugGuiManager;
 import xyz.upperlevel.openverse.client.game.ClientScene;
+import xyz.upperlevel.openverse.client.game.Stage;
 import xyz.upperlevel.openverse.client.render.inventory.GuiManager;
 import xyz.upperlevel.openverse.client.render.inventory.InventoryGuiRegistry;
 import xyz.upperlevel.openverse.client.render.inventory.ItemRendererRegistry;
 import xyz.upperlevel.openverse.client.resource.ClientResources;
+import xyz.upperlevel.openverse.client.window.Window;
 import xyz.upperlevel.openverse.console.log.OpenverseLogger;
 import xyz.upperlevel.openverse.world.entity.EntityManager;
 import xyz.upperlevel.openverse.world.entity.player.Player;
-import xyz.upperlevel.ulge.game.Stage;
-import xyz.upperlevel.ulge.window.Window;
-import xyz.upperlevel.ulge.window.event.key.Key;
 
 import java.io.PrintStream;
 import java.util.logging.Logger;
 
+import static org.lwjgl.glfw.GLFW.*;
 import static xyz.upperlevel.openverse.Openverse.PROTOCOL;
 
 public class OpenverseClient implements OpenverseProxy {
@@ -46,8 +45,8 @@ public class OpenverseClient implements OpenverseProxy {
     @Getter
     private final GuiManager guiManager;
 
-    //@Getter
-    //private final DebugGuiManager debugGuiManager;
+    @Getter
+    private final DebugGuiManager debugGuiManager;
 
     @Getter
     private boolean captureInput = true;
@@ -81,7 +80,7 @@ public class OpenverseClient implements OpenverseProxy {
         this.itemRendererRegistry = new ItemRendererRegistry();
         this.inventoryGuiRegistry = new InventoryGuiRegistry();
         this.guiManager = new GuiManager(this);
-        //this.debugGuiManager = new DebugGuiManager(Launcher.get().getGame().getWindow().getId());
+        this.debugGuiManager = new DebugGuiManager(Launcher.get().getWindow());
     }
 
     public void onTick() {
@@ -96,18 +95,17 @@ public class OpenverseClient implements OpenverseProxy {
      * @param stage the stage to use
      */
     public void join(Stage stage) {
-        System.out.println("YUP I'M JOINING CORRECTLY!");
         stage.setScene(new ClientScene(this));
     }
 
     public void setCaptureInput(boolean enable) {
-        Launcher.get().getGame().getWindow().setCursorEnabled(!enable);
+        Launcher.get().getWindow().setInputMode(GLFW_CURSOR, !enable ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
         captureInput = enable;
     }
 
     public boolean isShifting() {
-        Window w = Launcher.get().getGame().getWindow();
-        return w.testKey(Key.LEFT_SHIFT) || w.testKey(Key.RIGHT_SHIFT);
+        Window w = Launcher.get().getWindow();
+        return w.getKey(GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || w.getKey(GLFW_KEY_LEFT_SHIFT) == GLFW_REPEAT;
     }
 
     @Override

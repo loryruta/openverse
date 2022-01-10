@@ -1,37 +1,28 @@
 package xyz.upperlevel.openverse.client.render.inventory;
 
 import org.joml.Matrix4f;
-import org.lwjgl.BufferUtils;
-import xyz.upperlevel.openverse.Openverse;
-import xyz.upperlevel.openverse.client.OpenverseClient;
-import xyz.upperlevel.openverse.client.render.block.*;
-import xyz.upperlevel.openverse.client.resource.ClientResources;
+import xyz.upperlevel.openverse.client.gl.Program;
+import xyz.upperlevel.openverse.client.gui.GuiBounds;
+import xyz.upperlevel.openverse.client.render.block.TextureBakery;
+import xyz.upperlevel.openverse.client.window.Window;
 import xyz.upperlevel.openverse.item.ItemStack;
 import xyz.upperlevel.openverse.util.exceptions.NotImplementedException;
 import xyz.upperlevel.openverse.world.block.BlockFace;
 import xyz.upperlevel.openverse.world.block.BlockType;
 import xyz.upperlevel.openverse.world.block.state.BlockState;
-import xyz.upperlevel.ulge.gui.GuiBounds;
-import xyz.upperlevel.ulge.opengl.DataType;
-import xyz.upperlevel.ulge.opengl.buffer.*;
-import xyz.upperlevel.ulge.opengl.shader.Program;
-import xyz.upperlevel.ulge.opengl.shader.Uniform;
-import xyz.upperlevel.ulge.window.Window;
 
-import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class BlockItemRenderer implements ItemRenderer {
-    private static final Program program;
-    private static Uniform boundsLoc;
+public class BlockItemRenderer implements ItemRenderer { // TODO
+    private static Program program;
+    //private static Uniform boundsLoc;
     private StateRenderData[] renderersByState;
 
     static {
-        program = OpenverseClient.get().getResources().programs().entry("gui_item_shader");
-        program.use();
-        boundsLoc = program.getUniform("bounds");
-        if (boundsLoc == null) throw new IllegalStateException("Cannot find Uniform 'bounds'");
+        //program = OpenverseClient.get().getResources().programs().entry("gui_item_shader");
+        //program.use();
+        //boundsLoc = program.getUniform("bounds");
+        //if (boundsLoc == null) throw new IllegalStateException("Cannot find Uniform 'bounds'");
     }
 
     public BlockItemRenderer(BlockType type) {
@@ -53,23 +44,25 @@ public class BlockItemRenderer implements ItemRenderer {
 
     @Override
     public void renderInSlot(ItemStack item, Window window, GuiBounds bounds, SlotGui slot) {
+        /* render the item in slot
         program.use();
         float invWidth = 1f / window.getWidth();
         float invHeight = 1f / window.getHeight();
+
         boundsLoc.set(
                 (float) bounds.minX * invWidth,
                 1.0f - (float) bounds.minY * invHeight,         // Invert y
                 (float) (bounds.maxX - bounds.minX) * invWidth,    // Convert maxX to width
                 (float) (bounds.minY - bounds.maxY) * invHeight     // Convert maxY to height & Invert y: 1 - (max - min) = (min - max)
         );
-        TextureBakery.bind();
+        //TextureBakery.bind();
 
         StateRenderData data = renderersByState[item.getState()];
 
         if (data.vertices > 0) {
-            data.vao.bind();
-            data.vao.draw(DrawMode.QUADS, 0, data.vertices);
-        }
+            //data.vao.bind();
+            //data.vao.draw(DrawMode.QUADS, 0, data.vertices);
+        }*/
     }
 
     @Override
@@ -84,11 +77,12 @@ public class BlockItemRenderer implements ItemRenderer {
     }
 
     private static class StateRenderData {
-        public Vao vao;
-        public Vbo vbo;
+        //public Vao vao;
+        //public Vbo vbo;
         public int vertices;
 
         public void setup(BlockState state, BlockFace displayFace) {
+            /*
             BlockModel model = BlockTypeModelMapper.model(state);
             if (model == null) {
                 throw new IllegalStateException("Cannot find model for " + state);
@@ -112,11 +106,10 @@ public class BlockItemRenderer implements ItemRenderer {
             linker.setup();
 
             vbo.loadData(buffer, VboDataUsage.STATIC_DRAW);
+            */
         }
 
         public void destroy() {
-            vbo.destroy();
-            vao.destroy();
         }
     }
 }

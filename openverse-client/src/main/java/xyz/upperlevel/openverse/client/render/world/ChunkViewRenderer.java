@@ -2,7 +2,6 @@ package xyz.upperlevel.openverse.client.render.world;
 
 import lombok.Getter;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
 import xyz.upperlevel.event.EventHandler;
 import xyz.upperlevel.event.Listener;
@@ -10,7 +9,9 @@ import xyz.upperlevel.openverse.client.Launcher;
 import xyz.upperlevel.openverse.client.OpenverseClient;
 import xyz.upperlevel.openverse.client.render.block.TextureBakery;
 import xyz.upperlevel.openverse.client.render.world.util.VertexBufferPool;
-import xyz.upperlevel.openverse.client.util.GLUtil;
+import xyz.upperlevel.openverse.client.gl.GLUtil;
+import xyz.upperlevel.openverse.client.window.Window;
+import xyz.upperlevel.openverse.client.window.WindowResizeEvent;
 import xyz.upperlevel.openverse.client.world.ClientWorld;
 import xyz.upperlevel.openverse.event.BlockUpdateEvent;
 import xyz.upperlevel.openverse.event.ShutdownEvent;
@@ -18,7 +19,6 @@ import xyz.upperlevel.openverse.world.chunk.ChunkLocation;
 import xyz.upperlevel.openverse.world.chunk.event.ChunkLightChangeEvent;
 import xyz.upperlevel.openverse.world.event.ChunkLoadEvent;
 import xyz.upperlevel.openverse.world.event.ChunkUnloadEvent;
-import xyz.upperlevel.ulge.window.event.ResizeEvent;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
@@ -67,8 +67,9 @@ public class ChunkViewRenderer implements Listener {
     public ChunkViewRenderer() {
         this.distance = 1;
 
-        int initScreenWidth  = Launcher.get().getGame().getWindow().getWidth();
-        int initScreenHeight = Launcher.get().getGame().getWindow().getHeight();
+        Window w = Launcher.get().getWindow();
+        int initScreenWidth  = w.getWidth();
+        int initScreenHeight = w.getHeight();
         this.gBuffer = new GBuffer(initScreenWidth, initScreenHeight);
 
         OpenverseClient.get().getEventManager().register(this);
@@ -132,7 +133,7 @@ public class ChunkViewRenderer implements Listener {
 
     private void fillGBuffer(GBuffer gBuffer, Matrix4f transform, Matrix4f camera) {
         try (MemoryStack stack = MemoryStack.stackPush()) { // todo
-            glUseProgram(gBufferProgram.getProgramName());
+            gBufferProgram.getProgram().use();
 
             glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFramebuffer());
 
@@ -153,7 +154,7 @@ public class ChunkViewRenderer implements Listener {
 
             glUniform1i(GBufferProgram.UNIFORM_BLOCK_TEXTURES, 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D_ARRAY, TextureBakery.textureArray.getId());
+            glBindTexture(GL_TEXTURE_2D_ARRAY, TextureBakery.get().getTextureArray());
 
             for (ChunkRenderer bakedChunk : chunks.values()) { // todo ChunkRenderer -> BakedChunk
                 if (bakedChunk.getDrawVerticesCount() > 0) {
@@ -165,7 +166,7 @@ public class ChunkViewRenderer implements Listener {
     }
 
     private void applyLights(GBuffer gBuffer) {
-        glUseProgram(applyLightsProgram.getProgramName());
+        applyLightsProgram.getProgram().use();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0); // draw to screen
 
@@ -280,11 +281,11 @@ public class ChunkViewRenderer implements Listener {
     }
 
     @EventHandler
-    public void onWindowResize(ResizeEvent event) {
-        OpenverseClient.logger().fine(String.format("[ChunkViewRenderer] Resizing window to: (%d, %d)", event.getWidth(), event.getHeight()));
+    public void onWindowResize(WindowResizeEvent e) {
+        OpenverseClient.logger().fine(String.format("[ChunkViewRenderer] Resizing window to: (%d, %d)", e.getWidth(), e.getHeight()));
 
         gBuffer.destroy();
-        gBuffer = new GBuffer(event.getWidth(), event.getHeight());
+        gBuffer = new GBuffer(e.getWidth(), e.getHeight());
     }
 
     @EventHandler
